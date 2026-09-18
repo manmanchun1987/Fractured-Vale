@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>星隕之境 Fractured Vale</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="https://unpkg.com/colyseus.js@0.15.25/dist/colyseus.js"></script>
+</head>
+<body>
+  <div id="game-root"></div>
+  <div id="ui-overlay">
+    <div id="create-panel" class="panel hidden">
+      <h1>星隕之境</h1>
+      <p class="sub">Fractured Vale · Phase 2</p>
+      <label>角色名稱
+        <input id="name-input" type="text" maxlength="16" placeholder="旅人" autocomplete="off" />
+      </label>
+      <label>國家（18）
+        <select id="nation-select"></select>
+      </label>
+      <p id="nation-bonus" class="hint"></p>
+      <label>專精兵種（7）
+        <select id="spec-select"></select>
+      </label>
+      <p id="spec-desc" class="hint"></p>
+      <button id="enter-btn" type="button">進入世界</button>
+      <p id="create-error" class="error"></p>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <span id="hud-name"></span>
+        <span id="hud-zoom">1.0x</span>
+      </div>
+      <div id="chat-box">
+        <div id="chat-log"></div>
+        <form id="chat-form">
+          <input id="chat-input" type="text" maxlength="120" placeholder="說點什麼…" autocomplete="off" />
+          <button type="submit">送出</button>
+        </form>
+      </div>
+      <div id="joystick-zone"></div>
+      <p id="hint-bar">搖桿移動 · 雙指／滾輪變焦 · Phase 3 採集尚未開放</p>
+    </div>
+
+    <div id="boot-msg">載入中…</div>
+  </div>
+
+  <script src="js/net/Client.js"></script>
+  <script src="js/ui/Joystick.js"></script>
+  <script src="js/scenes/BootScene.js"></script>
+  <script src="js/scenes/CreateScene.js"></script>
+  <script src="js/scenes/GameScene.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

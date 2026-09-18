@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "note": "Seven AOC-flavored unit types. Specialization picks one for Phase 2 hero focus.",
+  "units": [
+    {
+      "id": "villager",
+      "nameZh": "村民",
+      "nameEn": "Villager",
+      "role": "economy",
+      "speed": 90,
+      "hp": 40,
+      "color": "#C4A35A",
+      "size": 14,
+      "desc": "經濟核心。Phase 3 將負責採集。"
+    },
+    {
+      "id": "militia",
+      "nameZh": "民兵",
+      "nameEn": "Militia",
+      "role": "melee",
+      "speed": 100,
+      "hp": 55,
+      "color": "#8B7355",
+      "size": 16,
+      "desc": "基礎近戰步兵。"
+    },
+    {
+      "id": "spearman",
+      "nameZh": "槍兵",
+      "nameEn": "Spearman",
+      "role": "anti_cavalry",
+      "speed": 95,
+      "hp": 50,
+      "color": "#6B8E23",
+      "size": 16,
+      "desc": "克制騎兵的長矛單位。"
+    },
+    {
+      "id": "archer",
+      "nameZh": "弓箭手",
+      "nameEn": "Archer",
+      "role": "ranged",
+      "speed": 105,
+      "hp": 35,
+      "color": "#5F9EA0",
+      "size": 14,
+      "desc": "遠程輸出。"
+    },
+    {
+      "id": "cavalry",
+      "nameZh": "騎兵",
+      "nameEn": "Cavalry",
+      "role": "shock",
+      "speed": 140,
+      "hp": 70,
+      "color": "#CD853F",
+      "size": 18,
+      "desc": "高速衝擊單位。"
+    },
+    {
+      "id": "monk",
+      "nameZh": "僧侶",
+      "nameEn": "Monk",
+      "role": "support",
+      "speed": 85,
+      "hp": 30,
+      "color": "#F5F5DC",
+      "size": 14,
+      "desc": "支援與治療（Phase 3+）。"
+    },
+    {
+      "id": "siege",
+      "nameZh": "攻城器",
+      "nameEn": "Siege",
+      "role": "siege",
+      "speed": 60,
+      "hp": 80,
+      "color": "#696969",
+      "size": 20,
+      "desc": "攻城與破甲。移動緩慢。"
+    }
+  ]
+}

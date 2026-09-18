@@ -1,0 +1,67 @@
+# 星隕之境 Fractured Vale
+
+低奇幻中世紀策略 MMO（SLG × 動作混合，AOC 風味），**手機瀏覽器優先**，反課金設計，$0 成本。
+
+目前版本：**Phase 2** — 創角、多人世界、虛擬搖桿、變焦、LOD、聊天、SQLite 存檔。
+
+> Phase 3（村民採集 / 兵營 / 跟隨 AI / 掉落）**尚未實作**，程式內留有註解鉤子。
+
+---
+
+## 點樣跑（極簡）
+
+喺專案根目錄（有 `package.json` 嗰層）：
+
+```bash
+npm install
+npm start
+```
+
+然後用瀏覽器開：`http://localhost:2567`
+
+- iPhone / Replit：用 https 網址即可，client 會自動用 `wss://`
+- **唔使 build**，靜態 HTML/JS + CDN
+
+### 操作
+
+| 操作 | 說明 |
+|------|------|
+| 創角 | 揀國家（18）+ 專精兵種（7）+ 名稱 |
+| 移動 | 左下虛擬搖桿，或鍵盤 WASD / 方向鍵 |
+| 變焦 | 雙指捏合，或滑鼠滾輪（0.3x–2x） |
+| 聊天 | 左下角輸入框 |
+
+資料驅動：改 `client/data/nations.json`、`client/data/units.json` 即可調國家／兵種。
+
+---
+
+## Run (English)
+
+```bash
+npm install && npm start
+# open http://localhost:2567
+```
+
+Stack: Node.js + Colyseus + SQLite (`better-sqlite3`) server; Phaser 3.80 + colyseus.js via CDN (no client bundler).
+
+Optional deploy stubs: `Dockerfile`, `render.yaml` (do not change local `npm start`).
+
+---
+
+## 目錄結構
+
+```
+app/
+  package.json
+  server/src/index.js          # Express + Colyseus
+  server/src/rooms/WorldRoom.js
+  server/src/db.js             # SQLite player save
+  client/index.html
+  client/js/scenes/*.js
+  client/data/nations.json     # 18 nations
+  client/data/units.json       # 7 unit types
+```
+
+## 授權與方針
+
+私人專案。無內購、無抽卡。概念隨時會改 → 保持數據驅動。

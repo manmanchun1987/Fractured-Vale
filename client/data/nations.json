@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "note": "AOC-flavored low fantasy nations. Owner may edit freely.",
+  "nations": [
+    {
+      "id": "britons",
+      "nameZh": "不列顛",
+      "nameEn": "Britons",
+      "color": "#4169E1",
+      "bonus": "遠程射程 +1",
+      "startX": 400,
+      "startY": 400
+    },
+    {
+      "id": "franks",
+      "nameZh": "法蘭克",
+      "nameEn": "Franks",
+      "color": "#1E90FF",
+      "bonus": "騎兵生命 +20%",
+      "startX": 600,
+      "startY": 350
+    },
+    {
+      "id": "goths",
+      "nameZh": "哥特",
+      "nameEn": "Goths",
+      "color": "#708090",
+      "bonus": "步兵生產加速",
+      "startX": 800,
+      "startY": 450
+    },
+    {
+      "id": "teutons",
+      "nameZh": "條頓",
+      "nameEn": "Teutons",
+      "color": "#2F4F4F",
+      "bonus": "近戰護甲 +1",
+      "startX": 500,
+      "startY": 600
+    },
+    {
+      "id": "japanese",
+      "nameZh": "日本",
+      "nameEn": "Japanese",
+      "color": "#DC143C",
+      "bonus": "近戰攻擊速度",
+      "startX": 1200,
+      "startY": 400
+    },
+    {
+      "id": "chinese",
+      "nameZh": "中國",
+      "nameEn": "Chinese",
+      "color": "#FFD700",
+      "bonus": "開局額外村民",
+      "startX": 1100,
+      "startY": 550
+    },
+    {
+      "id": "byzantines",
+      "nameZh": "拜占庭",
+      "nameEn": "Byzantines",
+      "color": "#9932CC",
+      "bonus": "建築生命 +10%",
+      "startX": 700,
+      "startY": 700
+    },
+    {
+      "id": "persians",
+      "nameZh": "波斯",
+      "nameEn": "Persians",
+      "color": "#228B22",
+      "bonus": "城鎮中心工作效率",
+      "startX": 900,
+      "startY": 800
+    },
+    {
+      "id": "saracens",
+      "nameZh": "薩拉森",
+      "nameEn": "Saracens",
+      "color": "#006400",
+      "bonus": "市集交易費減半",
+      "startX": 1000,
+      "startY": 650
+    },
+    {
+      "id": "turks",
+      "nameZh": "土耳其",
+      "nameEn": "Turks",
+      "color": "#8B4513",
+      "bonus": "火藥單位強化",
+      "startX": 850,
+      "startY": 300
+    },
+    {
+      "id": "vikings",
+      "nameZh": "維京",
+      "nameEn": "Vikings",
+      "color": "#4682B4",
+      "bonus": "步兵生命 +10%",
+      "startX": 300,
+      "startY": 250
+    },
+    {
+      "id": "mongols",
+      "nameZh": "蒙古",
+      "nameEn": "Mongols",
+      "color": "#FF8C00",
+      "bonus": "騎射手移動加速",
+      "startX": 1300,
+      "startY": 300
+    },
+    {
+      "id": "celts",
+      "nameZh": "凱爾特",
+      "nameEn": "Celts",
+      "color": "#32CD32",
+      "bonus": "步兵移動加速",
+      "startX": 250,
+      "startY": 500
+    },
+    {
+      "id": "spanish",
+      "nameZh": "西班牙",
+      "nameEn": "Spanish",
+      "color": "#FF4500",
+      "bonus": "金礦採集加速",
+      "startX": 450,
+      "startY": 850
+    },
+    {
+      "id": "aztecs",
+      "nameZh": "阿茲特克",
+      "nameEn": "Aztecs",
+      "color": "#8B0000",
+      "bonus": "僧侶攜帶遺物加成",
+      "startX": 200,
+      "startY": 900
+    },
+    {
+      "id": "mayans",
+      "nameZh": "馬雅",
+      "nameEn": "Mayans",
+      "color": "#556B2F",
+      "bonus": "遠程資源消耗減半",
+      "startX": 350,
+      "startY": 750
+    },
+    {
+      "id": "koreans",
+      "nameZh": "朝鮮",
+      "nameEn": "Koreans",
+      "color": "#4B0082",
+      "bonus": "塔與船隻強化",
+      "startX": 1400,
+      "startY": 500
+    },
+    {
+      "id": "huns",
+      "nameZh": "匈人",
+      "nameEn": "Huns",
+      "color": "#A0522D",
+      "bonus": "無需民房人口",
+      "startX": 1250,
+      "startY": 700
+    }
+  ]
+}
