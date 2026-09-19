@@ -17,8 +17,10 @@ class PlayerState extends Schema {
     this.atk = 8;
     this.atkBonus = 0;
     this.wood = 0;
-    this.food = 0;
+    this.meat = 0;
     this.stone = 0;
+    this.gold = 0;
+    this.pop = 0; // live unit count (followers + garrisoned)
   }
 }
 
@@ -37,15 +39,17 @@ defineTypes(PlayerState, {
   atk: "number",
   atkBonus: "number",
   wood: "number",
-  food: "number",
+  meat: "number",
   stone: "number",
+  gold: "number",
+  pop: "number",
 });
 
 class ResourceNodeState extends Schema {
   constructor() {
     super();
     this.id = "";
-    this.type = "wood";
+    this.type = "wood"; // wood|meat|stone|gold
     this.x = 0;
     this.y = 0;
     this.amount = 100;
@@ -85,6 +89,37 @@ defineTypes(BuildingState, {
   queueUnit: "string",
 });
 
+class CastleState extends Schema {
+  constructor() {
+    super();
+    this.id = "";
+    this.ownerId = "";
+    this.ownerSessionId = "";
+    this.x = 0;
+    this.y = 0;
+    this.targetX = 0;
+    this.targetY = 0;
+    this.moving = false;
+    this.followOwner = false;
+    this.garrison = 0; // count of units inside
+    this.color = "#4A3728";
+  }
+}
+
+defineTypes(CastleState, {
+  id: "string",
+  ownerId: "string",
+  ownerSessionId: "string",
+  x: "number",
+  y: "number",
+  targetX: "number",
+  targetY: "number",
+  moving: "boolean",
+  followOwner: "boolean",
+  garrison: "number",
+  color: "string",
+});
+
 class FollowerState extends Schema {
   constructor() {
     super();
@@ -100,9 +135,10 @@ class FollowerState extends Schema {
     this.maxHp = 55;
     this.atk = 8;
     this.carryWood = 0;
-    this.carryFood = 0;
+    this.carryMeat = 0;
     this.carryStone = 0;
-    this.ai = "follow"; // follow | gather | deposit | combat
+    this.carryGold = 0;
+    this.ai = "follow";
   }
 }
 
@@ -119,8 +155,9 @@ defineTypes(FollowerState, {
   maxHp: "number",
   atk: "number",
   carryWood: "number",
-  carryFood: "number",
+  carryMeat: "number",
   carryStone: "number",
+  carryGold: "number",
   ai: "string",
 });
 
@@ -130,11 +167,11 @@ class LootState extends Schema {
     this.id = "";
     this.x = 0;
     this.y = 0;
-    this.kind = "food"; // wood|food|stone|item
+    this.kind = "meat"; // wood|meat|stone|gold|item
     this.amount = 1;
     this.itemId = "";
     this.label = "";
-    this.color = "#DAA520";
+    this.color = "#C45C26";
     this.spawnAt = 0;
   }
 }
@@ -157,6 +194,7 @@ class WorldState extends Schema {
     this.players = new MapSchema();
     this.resources = new MapSchema();
     this.buildings = new MapSchema();
+    this.castles = new MapSchema();
     this.followers = new MapSchema();
     this.loot = new MapSchema();
     this.worldW = 1600;
@@ -168,6 +206,7 @@ defineTypes(WorldState, {
   players: { map: PlayerState },
   resources: { map: ResourceNodeState },
   buildings: { map: BuildingState },
+  castles: { map: CastleState },
   followers: { map: FollowerState },
   loot: { map: LootState },
   worldW: "number",
@@ -178,6 +217,7 @@ module.exports = {
   PlayerState,
   ResourceNodeState,
   BuildingState,
+  CastleState,
   FollowerState,
   LootState,
   WorldState,

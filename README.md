@@ -2,7 +2,7 @@
 
 低奇幻中世紀策略 MMO（SLG × 動作混合，AOC 風味），**手機瀏覽器優先**，反課金設計，$0 成本。
 
-目前版本：**Phase 4** — 採集／庫存／兵營／跟隨 + **戰鬥、掉落物、村民採集 AI、兵營持久化**。
+目前版本：**Phase 4+** — 戰鬥／掉落／村民AI／兵營存檔 + **木肉石金、移動城堡駐軍、人口上限 300**。
 
 ---
 
@@ -29,7 +29,7 @@ npm start
 | 平移鏡頭 | 單指／滑鼠拖曳空白地圖（會暫停跟隨） |
 | 返自己 | 右上「返自己」掣：鏡頭回角色並恢復跟隨 |
 | 變焦 | 雙指捏合，或滑鼠滾輪／+/-（0.3x–2x） |
-| 採集 | 走近木／食／石節點自動採集 |
+| 採集 | 走近 木／肉／石／金 節點自動採集 |
 | 兵營 | B 或「兵營」按鈕建造（耗木石；**存入 SQLite**） |
 | 訓練 | 走近兵營：T 民兵／V 村民（耗食物） |
 | 攻擊 | 按住「攻擊」或 A／空白鍵：打附近敵方單位／玩家（輕 PvP） |
@@ -37,7 +37,7 @@ npm start
 | 村民 AI | 村民自動採集並交回主人；民兵閒置近節點也會輕採 |
 | 聊天 | 右下角輸入框 |
 
-資料驅動：改 `client/data/*.json`（含 `loot.json`）即可調數值。
+資料驅動：改 `client/data/*.json`（含 `loot.json`、`buildings.json` populationCap）即可調數值。
 
 ---
 
@@ -52,7 +52,7 @@ Stack: Node.js + Colyseus + SQLite (`better-sqlite3`) server; Phaser 3.80 + coly
 
 Optional deploy stubs: `Dockerfile`, `render.yaml` (do not change local `npm start`).
 
-Health: `GET /api/health` → `{ phase: 4, features: [...] }`.
+Health: `GET /api/health` → `{ phase: 4, features: [..., mobile-castle, pop-cap-300] }`.
 
 ---
 
@@ -71,6 +71,7 @@ app/
   client/data/resources.json   # resource nodes
   client/data/buildings.json   # barracks / train
   client/data/loot.json        # death drops + items
+  # resources: wood/meat/stone/gold · buildings: barracks + mobile castle · popCap 300
 ```
 
 ## 授權與方針

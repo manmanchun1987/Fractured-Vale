@@ -1,34 +1,45 @@
 {
-  "version": 2,
-  "note": "Barracks can queue militia or villager.",
+  "version": 3,
+  "note": "Barracks + mobile castle. Population cap 300.",
+  "populationCap": 300,
   "barracks": {
     "id": "barracks",
     "nameZh": "兵營",
-    "placeCost": { "wood": 40, "stone": 20, "food": 0 },
+    "placeCost": { "wood": 40, "stone": 20, "meat": 0, "gold": 0 },
     "placeRange": 64,
     "interactRange": 72,
     "size": 36,
     "color": "#8B4513",
-    "maxFollowers": 8,
+    "maxFollowers": 300,
     "trains": {
       "militia": {
         "unitId": "militia",
-        "cost": { "wood": 0, "stone": 0, "food": 25 },
+        "cost": { "wood": 0, "stone": 0, "meat": 25, "gold": 0 },
         "durationMs": 4000,
         "labelZh": "民兵"
       },
       "villager": {
         "unitId": "villager",
-        "cost": { "wood": 0, "stone": 0, "food": 20 },
+        "cost": { "wood": 0, "stone": 0, "meat": 20, "gold": 0 },
         "durationMs": 3500,
         "labelZh": "村民"
       }
     },
     "train": {
       "unitId": "militia",
-      "cost": { "wood": 0, "stone": 0, "food": 25 },
+      "cost": { "wood": 0, "stone": 0, "meat": 25, "gold": 0 },
       "durationMs": 4000,
-      "maxFollowers": 8
+      "maxFollowers": 300
     }
+  },
+  "castle": {
+    "id": "castle",
+    "nameZh": "移動城堡",
+    "size": 52,
+    "color": "#4A3728",
+    "speed": 55,
+    "interactRange": 90,
+    "garrisonRadius": 100,
+    "note": "One per player. Can move and garrison all owned units."
   }
 }

@@ -15,7 +15,7 @@
   <div id="ui-overlay">
     <div id="create-panel" class="panel hidden">
       <h1>星隕之境</h1>
-      <p class="sub">Fractured Vale · Phase 4</p>
+      <p class="sub">Fractured Vale · Phase 4+</p>
       <label>角色名稱
         <input id="name-input" type="text" maxlength="16" placeholder="旅人" autocomplete="off" />
       </label>
@@ -35,7 +35,7 @@
       <div id="hud-top">
         <span id="hud-name"></span>
         <span id="hud-hp">HP —</span>
-        <span id="hud-res">木 0 · 食 0 · 石 0</span>
+        <span id="hud-res">木0 肉0 石0 金0</span><span id="hud-pop">人口 0/300</span>
         <span id="hud-zoom">1.0x</span>
       </div>
       <div id="zoom-controls" aria-label="zoom">
@@ -48,6 +48,9 @@
         <button type="button" id="btn-build" title="建造兵營 (B)">兵營 B</button>
         <button type="button" id="btn-train" title="訓練民兵 (T)">民兵 T</button>
         <button type="button" id="btn-train-villager" title="訓練村民 (V)">村民 V</button>
+        <button type="button" id="btn-garrison" title="部隊入城">入城</button>
+        <button type="button" id="btn-deploy" title="部隊出城">出城</button>
+        <button type="button" id="btn-castle-follow" title="城堡跟隨自己">城堡跟</button>
       </div>
       <div id="chat-box">
         <div id="chat-log"></div>
@@ -57,7 +60,7 @@
         </form>
       </div>
       <div id="joystick-zone"></div>
-      <p id="hint-bar">搖桿移動 · 拖地圖 · 返自己 · 變焦 · 採集 · 攻擊 · B兵營 · T民兵 · V村民 · 踩掉落物</p>
+      <p id="hint-bar">搖桿·變焦·採集木肉石金·攻擊·B兵營·T/V訓練·入城/出城·城堡跟·人口≤300</p>
     </div>
 
     <div id="boot-msg">載入中…</div>

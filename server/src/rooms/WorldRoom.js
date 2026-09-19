@@ -4,6 +4,7 @@ const {
   PlayerState,
   ResourceNodeState,
   BuildingState,
+  CastleState,
   FollowerState,
   LootState,
 } = require("../schema/PlayerState");
@@ -32,6 +33,8 @@ const nationById = Object.fromEntries(nationsData.nations.map((n) => [n.id, n]))
 const unitById = Object.fromEntries(unitsData.units.map((u) => [u.id, u]));
 const resourceTypes = resourcesData.types || {};
 const barracksCfg = buildingsData.barracks;
+const castleCfg = buildingsData.castle || {};
+const POP_CAP = buildingsData.populationCap || 300;
 const lootItems = lootData.items || {};
 const lootTables = lootData.tables || {};
 const pickupRadius = lootData.pickupRadius || 32;
@@ -40,25 +43,28 @@ const playerDeathCfg = lootData.playerDeath || {};
 
 const WORLD_W = 1600;
 const WORLD_H = 1200;
-const TICK_MS = 50; // 20 Hz
-const PVP_DAMAGE_SCALE = 0.45; // light player-vs-player
+const TICK_MS = 50;
+const PVP_DAMAGE_SCALE = 0.45;
+const RES_KEYS = ["wood", "meat", "stone", "gold"];
 
 function dist(ax, ay, bx, by) {
   return Math.hypot(ax - bx, ay - by);
 }
 
+function costOf(cost, key) {
+  if (!cost) return 0;
+  if (key === "meat") return cost.meat || cost.food || 0; // accept legacy food key
+  return cost[key] || 0;
+}
+
 function canAfford(player, cost) {
-  return (
-    (player.wood || 0) >= (cost.wood || 0) &&
-    (player.food || 0) >= (cost.food || 0) &&
-    (player.stone || 0) >= (cost.stone || 0)
-  );
+  return RES_KEYS.every((k) => (player[k] || 0) >= costOf(cost, k));
 }
 
 function pay(player, cost) {
-  player.wood = Math.max(0, (player.wood || 0) - (cost.wood || 0));
-  player.food = Math.max(0, (player.food || 0) - (cost.food || 0));
-  player.stone = Math.max(0, (player.stone || 0) - (cost.stone || 0));
+  for (const k of RES_KEYS) {
+    player[k] = Math.max(0, (player[k] || 0) - costOf(cost, k));
+  }
 }
 
 function randRange(min, max) {
@@ -67,6 +73,13 @@ function randRange(min, max) {
 
 function unitStats(specId) {
   return unitById[specId] || unitById.militia;
+}
+
+function addResource(target, type, amount) {
+  // accept legacy "food" as meat
+  const key = type === "food" ? "meat" : type;
+  if (!RES_KEYS.includes(key)) return;
+  target[key] = (target[key] || 0) + amount;
 }
 
 class WorldRoom extends Room {
@@ -79,10 +92,12 @@ class WorldRoom extends Room {
     this.saveTimers = new Map();
     this.gatherAcc = new Map();
     this.followerGatherAcc = new Map();
-    this.atkCooldown = new Map(); // key -> remaining ms
-    this.attackIntent = new Map(); // sessionId -> bool (hold/tap attack)
+    this.atkCooldown = new Map();
+    this.attackIntent = new Map();
     this.lootSeq = 0;
     this.followerSeq = 0;
+    // ownerSessionId -> array of serialized follower snapshots
+    this.garrisonStore = new Map();
 
     this.spawnResourceNodes();
     this.loadPersistedBuildings();
@@ -111,34 +126,26 @@ class WorldRoom extends Room {
       });
     });
 
-    this.onMessage("save", (client) => {
-      this.persistPlayer(client.sessionId);
-    });
-
-    this.onMessage("build", (client, message) => {
-      this.handleBuild(client, message);
-    });
-
-    this.onMessage("train", (client, message) => {
-      this.handleTrain(client, message);
-    });
-
+    this.onMessage("save", (client) => this.persistPlayer(client.sessionId));
+    this.onMessage("build", (client, message) => this.handleBuild(client, message));
+    this.onMessage("train", (client, message) => this.handleTrain(client, message));
     this.onMessage("attack", (client, message) => {
       const on = message?.on !== false && message?.on !== 0;
       this.attackIntent.set(client.sessionId, !!on);
-      // tap: fire once immediately
       if (on) this.tryPlayerAttack(client.sessionId, true);
     });
 
+    this.onMessage("castle", (client, message) => this.handleCastle(client, message));
+
     this.setSimulationInterval((deltaTime) => this.update(deltaTime), TICK_MS);
-    console.log("[WorldRoom] created (Phase 4: combat/loot/villager/persist)");
+    console.log("[WorldRoom] created (Phase 4+: combat/loot/castle/pop300)");
   }
 
   spawnResourceNodes() {
     for (const n of resourcesData.nodes || []) {
       const node = new ResourceNodeState();
       node.id = n.id;
-      node.type = n.type;
+      node.type = n.type === "food" ? "meat" : n.type;
       node.x = n.x;
       node.y = n.y;
       node.amount = n.amount;
@@ -150,6 +157,22 @@ class WorldRoom extends Room {
     try {
       const rows = loadAllBuildings();
       for (const row of rows) {
+        if (row.type === "castle") {
+          const c = new CastleState();
+          c.id = row.id;
+          c.ownerId = row.owner_id;
+          c.ownerSessionId = "";
+          c.x = row.x;
+          c.y = row.y;
+          c.targetX = row.x;
+          c.targetY = row.y;
+          c.moving = false;
+          c.followOwner = false;
+          c.garrison = 0;
+          c.color = castleCfg.color || "#4A3728";
+          this.state.castles.set(c.id, c);
+          continue;
+        }
         const b = new BuildingState();
         b.id = row.id;
         b.ownerId = row.owner_id;
@@ -162,11 +185,72 @@ class WorldRoom extends Room {
         this.state.buildings.set(b.id, b);
       }
       if (rows.length) {
-        console.log(`[WorldRoom] restored ${rows.length} building(s) from SQLite`);
+        console.log(`[WorldRoom] restored ${rows.length} building(s)/castle(s) from SQLite`);
       }
     } catch (err) {
       console.error("[WorldRoom] load buildings failed", err.message);
     }
+  }
+
+  ensureCastle(player, sessionId) {
+    let found = null;
+    this.state.castles.forEach((c) => {
+      if (c.ownerId === player.id) found = c;
+    });
+    if (found) {
+      found.ownerSessionId = sessionId;
+      found.color = player.color || found.color;
+      return found;
+    }
+    const c = new CastleState();
+    c.id = `castle_${player.id}`;
+    c.ownerId = player.id;
+    c.ownerSessionId = sessionId;
+    c.x = Math.max(40, Math.min(WORLD_W - 40, player.x - 50));
+    c.y = Math.max(40, Math.min(WORLD_H - 40, player.y + 40));
+    c.targetX = c.x;
+    c.targetY = c.y;
+    c.moving = false;
+    c.followOwner = false;
+    c.garrison = 0;
+    c.color = player.color || castleCfg.color || "#4A3728";
+    this.state.castles.set(c.id, c);
+    this.garrisonStore.set(sessionId, []);
+    try {
+      saveBuilding({ id: c.id, ownerId: c.ownerId, type: "castle", x: c.x, y: c.y });
+    } catch (err) {
+      console.error("[WorldRoom] save castle failed", err.message);
+    }
+    return c;
+  }
+
+  countPop(sessionId) {
+    let n = 0;
+    this.state.followers.forEach((f) => {
+      if (f.ownerSessionId === sessionId) n += 1;
+    });
+    const g = this.garrisonStore.get(sessionId);
+    if (g) n += g.length;
+    return n;
+  }
+
+  refreshPop(sessionId) {
+    const p = this.state.players.get(sessionId);
+    if (!p) return;
+    p.pop = this.countPop(sessionId);
+    const castle = this.findCastleBySession(sessionId);
+    if (castle) {
+      const g = this.garrisonStore.get(sessionId) || [];
+      castle.garrison = g.length;
+    }
+  }
+
+  findCastleBySession(sessionId) {
+    let found = null;
+    this.state.castles.forEach((c) => {
+      if (c.ownerSessionId === sessionId) found = c;
+    });
+    return found;
   }
 
   onJoin(client, options = {}) {
@@ -190,20 +274,23 @@ class WorldRoom extends Room {
     p.maxHp = unit.hp;
     p.atk = unit.atk || 8;
     p.atkBonus = 0;
+    p.pop = 0;
 
     if (existing && existing.nation_id === nationId) {
       p.x = existing.x;
       p.y = existing.y;
       p.wood = existing.wood || 0;
-      p.food = existing.food || 0;
+      p.meat = existing.meat || existing.food || 0;
       p.stone = existing.stone || 0;
+      p.gold = existing.gold || 0;
       p.atkBonus = existing.atk_bonus || 0;
     } else {
       p.x = nation.startX + (Math.random() * 40 - 20);
       p.y = nation.startY + (Math.random() * 40 - 20);
       p.wood = 10;
-      p.food = 15;
+      p.meat = 15;
       p.stone = 5;
+      p.gold = 0;
     }
 
     this.state.players.set(client.sessionId, p);
@@ -211,18 +298,23 @@ class WorldRoom extends Room {
     this.gatherAcc.set(client.sessionId, 0);
     this.attackIntent.set(client.sessionId, false);
     this.atkCooldown.set(`p:${client.sessionId}`, 0);
+    if (!this.garrisonStore.has(client.sessionId)) {
+      this.garrisonStore.set(client.sessionId, []);
+    }
 
-    // Re-bind buildings owned by this playerId
     this.state.buildings.forEach((b) => {
       if (b.ownerId === playerId) b.ownerSessionId = client.sessionId;
     });
+
+    this.ensureCastle(p, client.sessionId);
+    this.refreshPop(client.sessionId);
 
     const timer = setInterval(() => this.persistPlayer(client.sessionId), 15000);
     this.saveTimers.set(client.sessionId, timer);
 
     this.broadcast("system", { text: `${p.name} 進入了星隕之境`, t: Date.now() });
     client.send("system", {
-      text: "Phase 4：採集 · 兵營/村民 · 攻擊 · 掉落物 · 兵營會存檔",
+      text: `Phase 4+：木/肉/石/金 · 戰鬥掉落 · 村民AI · 移動城堡 · 人口上限${POP_CAP}`,
       t: Date.now(),
     });
     console.log(`[WorldRoom] join ${p.name} (${client.sessionId})`);
@@ -244,7 +336,7 @@ class WorldRoom extends Room {
     const cost = barracksCfg.placeCost || {};
     if (!canAfford(player, cost)) {
       client.send("system", {
-        text: `兵營需要 木${cost.wood || 0} 石${cost.stone || 0}`,
+        text: `兵營需要 木${costOf(cost, "wood")} 石${costOf(cost, "stone")}`,
         t: Date.now(),
       });
       return;
@@ -308,20 +400,19 @@ class WorldRoom extends Room {
       return;
     }
 
-    let followerCount = 0;
-    this.state.followers.forEach((f) => {
-      if (f.ownerSessionId === client.sessionId) followerCount += 1;
-    });
-    const maxF = barracksCfg.maxFollowers || barracksCfg.train?.maxFollowers || 8;
-    if (followerCount >= maxF) {
-      client.send("system", { text: `跟隨單位已達上限（${maxF}）`, t: Date.now() });
+    const pop = this.countPop(client.sessionId);
+    if (pop >= POP_CAP) {
+      client.send("system", {
+        text: `人口已達上限（${pop}/${POP_CAP}），無法再訓練`,
+        t: Date.now(),
+      });
       return;
     }
 
     const cost = train.cost || {};
     if (!canAfford(player, cost)) {
       client.send("system", {
-        text: `訓練需要 食${cost.food || 0}`,
+        text: `訓練需要 肉${costOf(cost, "meat")}`,
         t: Date.now(),
       });
       return;
@@ -331,11 +422,180 @@ class WorldRoom extends Room {
     barracks.queueUnit = train.unitId || unitKey;
     barracks.queueMs = train.durationMs || 4000;
     const label = train.labelZh || unitById[barracks.queueUnit]?.nameZh || "單位";
-    client.send("system", { text: `${label}訓練中…`, t: Date.now() });
+    client.send("system", { text: `${label}訓練中…（人口 ${pop}/${POP_CAP}）`, t: Date.now() });
+  }
+
+  handleCastle(client, message) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const castle = this.ensureCastle(player, client.sessionId);
+    const action = String(message?.action || "");
+
+    if (action === "follow") {
+      castle.followOwner = true;
+      castle.moving = true;
+      client.send("system", { text: "城堡跟隨開啟", t: Date.now() });
+      return;
+    }
+    if (action === "stop") {
+      castle.followOwner = false;
+      castle.moving = false;
+      castle.targetX = castle.x;
+      castle.targetY = castle.y;
+      client.send("system", { text: "城堡停止移動", t: Date.now() });
+      this.persistCastle(castle);
+      return;
+    }
+    if (action === "move") {
+      const tx = Number(message?.x);
+      const ty = Number(message?.y);
+      if (!Number.isFinite(tx) || !Number.isFinite(ty)) {
+        // default: move to player
+        castle.targetX = player.x;
+        castle.targetY = player.y;
+      } else {
+        castle.targetX = Math.max(40, Math.min(WORLD_W - 40, tx));
+        castle.targetY = Math.max(40, Math.min(WORLD_H - 40, ty));
+      }
+      castle.followOwner = false;
+      castle.moving = true;
+      client.send("system", { text: "城堡開始移動", t: Date.now() });
+      return;
+    }
+    if (action === "garrison" || action === "enter") {
+      this.doGarrison(client, castle, player);
+      return;
+    }
+    if (action === "deploy" || action === "exit") {
+      this.doDeploy(client, castle, player);
+      return;
+    }
+    client.send("system", {
+      text: "城堡指令：跟隨／停止／入城／出城",
+      t: Date.now(),
+    });
+  }
+
+  snapshotFollower(f) {
+    return {
+      specId: f.specId,
+      hp: f.hp,
+      maxHp: f.maxHp,
+      atk: f.atk,
+      color: f.color,
+      speed: f.speed,
+      carryWood: f.carryWood || 0,
+      carryMeat: f.carryMeat || 0,
+      carryStone: f.carryStone || 0,
+      carryGold: f.carryGold || 0,
+      ai: f.ai || "follow",
+    };
+  }
+
+  doGarrison(client, castle, player) {
+    const range = castleCfg.garrisonRadius || 100;
+    const store = this.garrisonStore.get(client.sessionId) || [];
+    const toPull = [];
+    this.state.followers.forEach((f, id) => {
+      if (f.ownerSessionId !== client.sessionId) return;
+      if (dist(f.x, f.y, castle.x, castle.y) <= range) toPull.push(id);
+    });
+    // also auto-pull if player is near castle — pull all owned field units
+    if (dist(player.x, player.y, castle.x, castle.y) <= range) {
+      this.state.followers.forEach((f, id) => {
+        if (f.ownerSessionId === client.sessionId && !toPull.includes(id)) {
+          toPull.push(id);
+        }
+      });
+    }
+    if (!toPull.length) {
+      client.send("system", { text: "附近沒有可入城的單位（請走近城堡）", t: Date.now() });
+      return;
+    }
+    for (const id of toPull) {
+      const f = this.state.followers.get(id);
+      if (!f) continue;
+      store.push(this.snapshotFollower(f));
+      this.state.followers.delete(id);
+      this.followerGatherAcc.delete(id);
+      this.atkCooldown.delete(`f:${id}`);
+    }
+    this.garrisonStore.set(client.sessionId, store);
+    castle.garrison = store.length;
+    this.refreshPop(client.sessionId);
+    client.send("system", {
+      text: `已入城 ${toPull.length} 名（城內 ${castle.garrison} · 人口 ${player.pop}/${POP_CAP}）`,
+      t: Date.now(),
+    });
+  }
+
+  doDeploy(client, castle, player) {
+    const store = this.garrisonStore.get(client.sessionId) || [];
+    if (!store.length) {
+      client.send("system", { text: "城堡內沒有單位", t: Date.now() });
+      return;
+    }
+    const deployed = store.splice(0, store.length);
+    let i = 0;
+    for (const snap of deployed) {
+      this.followerSeq += 1;
+      const f = new FollowerState();
+      f.id = `fol_${client.sessionId}_${this.followerSeq}`;
+      f.ownerSessionId = client.sessionId;
+      f.specId = snap.specId || "militia";
+      const ang = (i / Math.max(1, deployed.length)) * Math.PI * 2;
+      f.x = castle.x + Math.cos(ang) * 36;
+      f.y = castle.y + Math.sin(ang) * 36 + 20;
+      f.dir = "down";
+      f.color = snap.color || player.color;
+      f.speed = snap.speed || 95;
+      f.hp = snap.hp || unitStats(f.specId).hp;
+      f.maxHp = snap.maxHp || f.hp;
+      f.atk = snap.atk || unitStats(f.specId).atk || 5;
+      f.carryWood = snap.carryWood || 0;
+      f.carryMeat = snap.carryMeat || 0;
+      f.carryStone = snap.carryStone || 0;
+      f.carryGold = snap.carryGold || 0;
+      f.ai = snap.ai || (unitStats(f.specId).role === "economy" ? "gather" : "follow");
+      this.state.followers.set(f.id, f);
+      this.followerGatherAcc.set(f.id, 0);
+      this.atkCooldown.set(`f:${f.id}`, 0);
+      i += 1;
+    }
+    this.garrisonStore.set(client.sessionId, store);
+    castle.garrison = store.length;
+    this.refreshPop(client.sessionId);
+    client.send("system", {
+      text: `已出城 ${deployed.length} 名（城內 ${castle.garrison}）`,
+      t: Date.now(),
+    });
+  }
+
+  persistCastle(castle) {
+    try {
+      saveBuilding({
+        id: castle.id,
+        ownerId: castle.ownerId,
+        type: "castle",
+        x: castle.x,
+        y: castle.y,
+      });
+    } catch (err) {
+      console.error("[WorldRoom] persist castle failed", err.message);
+    }
   }
 
   spawnFollower(ownerSessionId, barracks, unitId) {
     const player = this.state.players.get(ownerSessionId);
+    if (!player) return;
+    if (this.countPop(ownerSessionId) >= POP_CAP) {
+      // refund meat roughly
+      const train = this.resolveTrainCfg(unitId);
+      if (train) {
+        player.meat += costOf(train.cost, "meat");
+      }
+      return;
+    }
     const unit = unitById[unitId] || unitById.militia;
     this.followerSeq += 1;
     const f = new FollowerState();
@@ -345,27 +605,25 @@ class WorldRoom extends Room {
     f.x = barracks.x + (Math.random() * 30 - 15);
     f.y = barracks.y + 28 + Math.random() * 10;
     f.dir = "down";
-    f.color = player ? player.color : unit.color;
+    f.color = player.color || unit.color;
     f.speed = (unit.speed || 100) * 0.92;
     f.hp = unit.hp;
     f.maxHp = unit.hp;
     f.atk = unit.atk || 5;
     f.carryWood = 0;
-    f.carryFood = 0;
+    f.carryMeat = 0;
     f.carryStone = 0;
+    f.carryGold = 0;
     f.ai = unit.role === "economy" ? "gather" : "follow";
     this.state.followers.set(f.id, f);
     this.followerGatherAcc.set(f.id, 0);
     this.atkCooldown.set(`f:${f.id}`, 0);
-    if (player) {
-      this.broadcast("system", {
-        text: `${player.name} 訓練出一名${unit.nameZh}`,
-        t: Date.now(),
-      });
-    }
+    this.refreshPop(ownerSessionId);
+    this.broadcast("system", {
+      text: `${player.name} 訓練出一名${unit.nameZh}（${player.pop}/${POP_CAP}）`,
+      t: Date.now(),
+    });
   }
-
-  // ---- Combat helpers ----
 
   effectiveAtk(entity, isPlayer) {
     const base = entity.atk || 5;
@@ -377,7 +635,6 @@ class WorldRoom extends Room {
     let best = null;
     let bestD = Infinity;
 
-    // enemy followers
     this.state.followers.forEach((f, id) => {
       if (f.ownerSessionId === mySessionId) return;
       if (f.hp <= 0) return;
@@ -388,13 +645,11 @@ class WorldRoom extends Room {
       }
     });
 
-    // other players (light PvP) — only if no follower closer or always check
     this.state.players.forEach((p, sid) => {
       if (sid === mySessionId) return;
       if (p.hp <= 0) return;
       const d = dist(ax, ay, p.x, p.y);
       if (d <= range && d < bestD) {
-        // prefer followers slightly: only replace if meaningfully closer
         if (!preferFollowers || !best || best.kind !== "follower" || d + 8 < bestD) {
           bestD = d;
           best = { kind: "player", id: sid, ref: p };
@@ -431,14 +686,19 @@ class WorldRoom extends Room {
       if (Math.random() > (entry.chance ?? 1)) continue;
       if (entry.kind === "item" && entry.itemId) {
         this.spawnLoot(x, y, "item", 1, entry.itemId);
-      } else if (entry.kind === "wood" || entry.kind === "food" || entry.kind === "stone") {
-        const amt = Math.round(randRange(entry.min || 1, entry.max || 3));
-        if (amt > 0) this.spawnLoot(x, y, entry.kind, amt, "");
+      } else {
+        let kind = entry.kind;
+        if (kind === "food") kind = "meat";
+        if (RES_KEYS.includes(kind)) {
+          const amt = Math.round(randRange(entry.min || 1, entry.max || 3));
+          if (amt > 0) this.spawnLoot(x, y, kind, amt, "");
+        }
       }
     }
   }
 
   spawnLoot(x, y, kind, amount, itemId) {
+    if (kind === "food") kind = "meat";
     this.lootSeq += 1;
     const loot = new LootState();
     loot.id = `loot_${this.lootSeq}_${Date.now().toString(36)}`;
@@ -462,10 +722,11 @@ class WorldRoom extends Room {
 
   killFollower(id, f, killerName) {
     this.rollDrops(f.specId, f.x, f.y);
-    // drop carried resources
-    if (f.carryWood > 0) this.spawnLoot(f.x, f.y, "wood", Math.ceil(f.carryWood), "");
-    if (f.carryFood > 0) this.spawnLoot(f.x, f.y, "food", Math.ceil(f.carryFood), "");
-    if (f.carryStone > 0) this.spawnLoot(f.x, f.y, "stone", Math.ceil(f.carryStone), "");
+    for (const k of RES_KEYS) {
+      const carryKey = "carry" + k.charAt(0).toUpperCase() + k.slice(1);
+      const amt = f[carryKey] || 0;
+      if (amt > 0) this.spawnLoot(f.x, f.y, k, Math.ceil(amt), "");
+    }
 
     const owner = this.state.players.get(f.ownerSessionId);
     const uname = unitById[f.specId]?.nameZh || "單位";
@@ -473,27 +734,21 @@ class WorldRoom extends Room {
       text: `${killerName || "未知"} 擊敗了${owner ? owner.name + "的" : ""}${uname}`,
       t: Date.now(),
     });
+    const sid = f.ownerSessionId;
     this.state.followers.delete(id);
     this.followerGatherAcc.delete(id);
     this.atkCooldown.delete(`f:${id}`);
+    this.refreshPop(sid);
   }
 
   killPlayer(sessionId, player, killerName) {
     const frac = playerDeathCfg.resourceLoseFraction ?? 0.25;
-    const dropWood = Math.floor((player.wood || 0) * frac);
-    const dropFood = Math.floor((player.food || 0) * frac);
-    const dropStone = Math.floor((player.stone || 0) * frac);
-    if (dropWood > 0) {
-      player.wood -= dropWood;
-      this.spawnLoot(player.x, player.y, "wood", dropWood, "");
-    }
-    if (dropFood > 0) {
-      player.food -= dropFood;
-      this.spawnLoot(player.x, player.y, "food", dropFood, "");
-    }
-    if (dropStone > 0) {
-      player.stone -= dropStone;
-      this.spawnLoot(player.x, player.y, "stone", dropStone, "");
+    for (const k of RES_KEYS) {
+      const drop = Math.floor((player[k] || 0) * frac);
+      if (drop > 0) {
+        player[k] -= drop;
+        this.spawnLoot(player.x, player.y, k, drop, "");
+      }
     }
     this.rollDrops(player.specId, player.x, player.y);
 
@@ -518,8 +773,7 @@ class WorldRoom extends Room {
     const unit = unitStats(player.specId);
     const cdKey = `p:${sessionId}`;
     const cdLeft = this.atkCooldown.get(cdKey) || 0;
-    if (!force && cdLeft > 0) return;
-    if (force && cdLeft > 0) return;
+    if (cdLeft > 0) return;
 
     const range = unit.atkRange || 36;
     const target = this.findHostileTarget(player.x, player.y, range, sessionId, true);
@@ -568,24 +822,27 @@ class WorldRoom extends Room {
     return true;
   }
 
-  // ---- Follower AI: gather / deposit / follow ----
-
   carryTotal(f) {
-    return (f.carryWood || 0) + (f.carryFood || 0) + (f.carryStone || 0);
+    return RES_KEYS.reduce((s, k) => {
+      const key = "carry" + k.charAt(0).toUpperCase() + k.slice(1);
+      return s + (f[key] || 0);
+    }, 0);
   }
 
-  moveToward(f, tx, ty, dt, stopDist = 8) {
-    const dx = tx - f.x;
-    const dy = ty - f.y;
+  moveToward(ent, tx, ty, speed, dt, stopDist = 8) {
+    const dx = tx - ent.x;
+    const dy = ty - ent.y;
     const d = Math.hypot(dx, dy);
     if (d <= stopDist) return d;
     const nx = dx / d;
     const ny = dy / d;
-    const step = Math.min(d - stopDist, f.speed * dt);
-    f.x += nx * step;
-    f.y += ny * step;
-    if (Math.abs(nx) > Math.abs(ny)) f.dir = nx > 0 ? "right" : "left";
-    else f.dir = ny > 0 ? "down" : "up";
+    const step = Math.min(d - stopDist, speed * dt);
+    ent.x += nx * step;
+    ent.y += ny * step;
+    if (ent.dir !== undefined) {
+      if (Math.abs(nx) > Math.abs(ny)) ent.dir = nx > 0 ? "right" : "left";
+      else ent.dir = ny > 0 ? "down" : "up";
+    }
     return d - step;
   }
 
@@ -605,12 +862,11 @@ class WorldRoom extends Room {
 
   depositCarry(f, player) {
     if (!player) return;
-    player.wood += f.carryWood || 0;
-    player.food += f.carryFood || 0;
-    player.stone += f.carryStone || 0;
-    f.carryWood = 0;
-    f.carryFood = 0;
-    f.carryStone = 0;
+    for (const k of RES_KEYS) {
+      const key = "carry" + k.charAt(0).toUpperCase() + k.slice(1);
+      player[k] = (player[k] || 0) + (f[key] || 0);
+      f[key] = 0;
+    }
   }
 
   tickFollowerGather(f, id, owner, dt) {
@@ -622,10 +878,9 @@ class WorldRoom extends Room {
     const cap = unit.carryCap || 10;
     const total = this.carryTotal(f);
 
-    // full → deposit
     if (total >= cap * 0.95) {
       f.ai = "deposit";
-      const d = this.moveToward(f, owner.x, owner.y, dt, 28);
+      const d = this.moveToward(f, owner.x, owner.y, f.speed, dt, 28);
       if (d <= 30) {
         this.depositCarry(f, owner);
         f.ai = isVillager ? "gather" : "follow";
@@ -633,12 +888,11 @@ class WorldRoom extends Room {
       return true;
     }
 
-    // villagers always gather when not in combat; militia only if idle near node
     const nearNode = this.findNearestNode(f.x, f.y, isVillager ? 320 : 72);
     if (!nearNode) {
       if (total > 0 && isVillager) {
         f.ai = "deposit";
-        const d = this.moveToward(f, owner.x, owner.y, dt, 28);
+        const d = this.moveToward(f, owner.x, owner.y, f.speed, dt, 28);
         if (d <= 30) {
           this.depositCarry(f, owner);
           f.ai = "gather";
@@ -655,11 +909,10 @@ class WorldRoom extends Room {
 
     if (d > radius) {
       f.ai = "gather";
-      this.moveToward(f, nearNode.x, nearNode.y, dt, radius * 0.6);
+      this.moveToward(f, nearNode.x, nearNode.y, f.speed, dt, radius * 0.6);
       return true;
     }
 
-    // gather into carry
     f.ai = "gather";
     let acc = (this.followerGatherAcc.get(id) || 0) + dt;
     const rate = (type.gatherPerSec || 3) * gatherMult;
@@ -668,8 +921,9 @@ class WorldRoom extends Room {
       const take = Math.min(nearNode.amount, rate * 0.35, cap - this.carryTotal(f));
       nearNode.amount = Math.max(0, nearNode.amount - take);
       if (nearNode.type === "wood") f.carryWood += take;
-      else if (nearNode.type === "food") f.carryFood += take;
+      else if (nearNode.type === "meat" || nearNode.type === "food") f.carryMeat += take;
       else if (nearNode.type === "stone") f.carryStone += take;
+      else if (nearNode.type === "gold") f.carryGold += take;
     }
     this.followerGatherAcc.set(id, acc);
     return true;
@@ -694,9 +948,9 @@ class WorldRoom extends Room {
             });
           }
         }
-      } else if (loot.kind === "wood") player.wood += loot.amount;
-      else if (loot.kind === "food") player.food += loot.amount;
-      else if (loot.kind === "stone") player.stone += loot.amount;
+      } else {
+        addResource(player, loot.kind, loot.amount);
+      }
       toRemove.push(id);
     });
     toRemove.forEach((id) => this.state.loot.delete(id));
@@ -705,12 +959,10 @@ class WorldRoom extends Room {
   update(deltaTime) {
     const dt = Math.min(deltaTime, 100) / 1000;
 
-    // cooldown tick
     this.atkCooldown.forEach((ms, key) => {
       this.atkCooldown.set(key, Math.max(0, ms - deltaTime));
     });
 
-    // loot despawn
     const now = Date.now();
     const expired = [];
     this.state.loot.forEach((loot, id) => {
@@ -718,7 +970,25 @@ class WorldRoom extends Room {
     });
     expired.forEach((id) => this.state.loot.delete(id));
 
-    // players
+    // castles move
+    const castleSpeed = castleCfg.speed || 55;
+    this.state.castles.forEach((castle) => {
+      const owner = this.state.players.get(castle.ownerSessionId);
+      if (castle.followOwner && owner) {
+        castle.targetX = owner.x - 40;
+        castle.targetY = owner.y + 50;
+        castle.moving = true;
+      }
+      if (!castle.moving) return;
+      const d = this.moveToward(castle, castle.targetX, castle.targetY, castleSpeed, dt, 12);
+      castle.x = Math.max(40, Math.min(WORLD_W - 40, castle.x));
+      castle.y = Math.max(40, Math.min(WORLD_H - 40, castle.y));
+      if (d <= 14) {
+        castle.moving = castle.followOwner ? true : false;
+        if (!castle.followOwner) this.persistCastle(castle);
+      }
+    });
+
     this.state.players.forEach((player, sessionId) => {
       if (player.hp <= 0) return;
       const input = this.inputs.get(sessionId) || { dx: 0, dy: 0 };
@@ -742,7 +1012,6 @@ class WorldRoom extends Room {
       }
     });
 
-    // barracks queues
     this.state.buildings.forEach((b) => {
       if (b.queueMs <= 0) return;
       b.queueMs = Math.max(0, b.queueMs - deltaTime);
@@ -755,13 +1024,11 @@ class WorldRoom extends Room {
       }
     });
 
-    // followers
     this.state.followers.forEach((f, id) => {
       const owner = this.state.players.get(f.ownerSessionId);
       if (!owner) return;
       if (f.hp <= 0) return;
 
-      // combat first if hostile in range
       const unit = unitStats(f.specId);
       const hostile = this.findHostileTarget(
         f.x, f.y,
@@ -770,10 +1037,9 @@ class WorldRoom extends Room {
         true
       );
       if (hostile) {
-        // close in if slightly out of range
         const d = dist(f.x, f.y, hostile.ref.x, hostile.ref.y);
         if (d > (unit.atkRange || 36)) {
-          this.moveToward(f, hostile.ref.x, hostile.ref.y, dt, (unit.atkRange || 36) * 0.7);
+          this.moveToward(f, hostile.ref.x, hostile.ref.y, f.speed, dt, (unit.atkRange || 36) * 0.7);
         }
         this.tryFollowerAttack(f, id);
         return;
@@ -784,7 +1050,6 @@ class WorldRoom extends Room {
         const busy = this.tickFollowerGather(f, id, owner, dt);
         if (busy) return;
       } else {
-        // militia idle near node: light auto-gather
         const near = this.findNearestNode(f.x, f.y, 56);
         if (near && this.carryTotal(f) < (unit.carryCap || 8) * 0.9) {
           const busy = this.tickFollowerGather(f, id, owner, dt);
@@ -792,17 +1057,14 @@ class WorldRoom extends Room {
         }
       }
 
-      // default follow
       f.ai = "follow";
       const dx = owner.x - f.x;
       const dy = owner.y - f.y;
       const d = Math.hypot(dx, dy);
-      const followDist = 42;
-      if (d > followDist) {
+      if (d > 42) {
         const nx = dx / d;
         const ny = dy / d;
-        const targetGap = 36;
-        const move = Math.min(d - targetGap, f.speed * dt);
+        const move = Math.min(d - 36, f.speed * dt);
         if (move > 0) {
           f.x += nx * move;
           f.y += ny * move;
@@ -837,9 +1099,7 @@ class WorldRoom extends Room {
       acc -= 0.35;
       const take = Math.min(nearest.amount, rate * 0.35);
       nearest.amount = Math.max(0, nearest.amount - take);
-      if (nearest.type === "wood") player.wood += take;
-      else if (nearest.type === "food") player.food += take;
-      else if (nearest.type === "stone") player.stone += take;
+      addResource(player, nearest.type, take);
     }
     this.gatherAcc.set(sessionId, acc);
   }
@@ -856,13 +1116,16 @@ class WorldRoom extends Room {
         x: p.x,
         y: p.y,
         wood: p.wood,
-        food: p.food,
+        meat: p.meat,
         stone: p.stone,
+        gold: p.gold,
         atkBonus: p.atkBonus,
       });
     } catch (err) {
       console.error("[WorldRoom] save failed", err.message);
     }
+    const castle = this.findCastleBySession(sessionId);
+    if (castle) this.persistCastle(castle);
   }
 
   onLeave(client) {
@@ -874,6 +1137,7 @@ class WorldRoom extends Room {
     this.gatherAcc.delete(client.sessionId);
     this.attackIntent.delete(client.sessionId);
     this.atkCooldown.delete(`p:${client.sessionId}`);
+    this.garrisonStore.delete(client.sessionId);
 
     const toRemove = [];
     this.state.followers.forEach((f, id) => {
@@ -890,10 +1154,19 @@ class WorldRoom extends Room {
         b.ownerSessionId = "";
         b.queueMs = 0;
         b.queueUnit = "";
-        // persist position (already saved on build; refresh)
         try {
           saveBuilding({ id: b.id, ownerId: b.ownerId, type: b.type, x: b.x, y: b.y });
         } catch (_) {}
+      }
+    });
+
+    this.state.castles.forEach((c) => {
+      if (c.ownerSessionId === client.sessionId) {
+        c.ownerSessionId = "";
+        c.moving = false;
+        c.followOwner = false;
+        c.garrison = 0;
+        this.persistCastle(c);
       }
     });
 

@@ -203,3 +203,29 @@ html, body {
     font-size: 9px;
   }
 }
+
+#hud-pop {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #79c0ff;
+  background: rgba(0,0,0,0.35);
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+#hud-actions #btn-garrison,
+#hud-actions #btn-deploy,
+#hud-actions #btn-castle-follow {
+  background: rgba(74, 55, 40, 0.92);
+  border-color: #8B6914;
+  font-size: 13px;
+}
+#hud-res {
+  font-size: 11px;
+  white-space: nowrap;
+}
+#hud-actions {
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}

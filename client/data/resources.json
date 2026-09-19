@@ -1,20 +1,24 @@
 {
-  "version": 1,
-  "note": "Phase 3 resource nodes. Gather when player is within range.",
+  "version": 2,
+  "note": "Gather nodes: 木 wood / 肉 meat / 石 stone / 金 gold. (food renamed to meat)",
   "types": {
-    "wood": { "nameZh": "木材", "color": "#2E8B57", "symbol": "木", "gatherPerSec": 4, "radius": 48 },
-    "food": { "nameZh": "食物", "color": "#DAA520", "symbol": "食", "gatherPerSec": 3, "radius": 48 },
-    "stone": { "nameZh": "石材", "color": "#778899", "symbol": "石", "gatherPerSec": 2.5, "radius": 48 }
+    "wood":  { "nameZh": "木材", "color": "#2E8B57", "symbol": "木", "gatherPerSec": 4,   "radius": 48 },
+    "meat":  { "nameZh": "肉食", "color": "#C45C26", "symbol": "肉", "gatherPerSec": 3,   "radius": 48 },
+    "stone": { "nameZh": "石材", "color": "#778899", "symbol": "石", "gatherPerSec": 2.5, "radius": 48 },
+    "gold":  { "nameZh": "金礦", "color": "#FFD700", "symbol": "金", "gatherPerSec": 1.8, "radius": 48 }
   },
   "nodes": [
-    { "id": "w1", "type": "wood", "x": 320, "y": 280, "amount": 200 },
-    { "id": "w2", "type": "wood", "x": 980, "y": 420, "amount": 200 },
-    { "id": "w3", "type": "wood", "x": 540, "y": 900, "amount": 180 },
-    { "id": "f1", "type": "food", "x": 450, "y": 520, "amount": 160 },
-    { "id": "f2", "type": "food", "x": 1100, "y": 700, "amount": 160 },
-    { "id": "f3", "type": "food", "x": 220, "y": 780, "amount": 140 },
-    { "id": "s1", "type": "stone", "x": 700, "y": 300, "amount": 120 },
+    { "id": "w1", "type": "wood",  "x": 320,  "y": 280, "amount": 200 },
+    { "id": "w2", "type": "wood",  "x": 980,  "y": 420, "amount": 200 },
+    { "id": "w3", "type": "wood",  "x": 540,  "y": 900, "amount": 180 },
+    { "id": "m1", "type": "meat",  "x": 450,  "y": 520, "amount": 160 },
+    { "id": "m2", "type": "meat",  "x": 1100, "y": 700, "amount": 160 },
+    { "id": "m3", "type": "meat",  "x": 220,  "y": 780, "amount": 140 },
+    { "id": "s1", "type": "stone", "x": 700,  "y": 300, "amount": 120 },
     { "id": "s2", "type": "stone", "x": 1280, "y": 500, "amount": 120 },
-    { "id": "s3", "type": "stone", "x": 860, "y": 980, "amount": 100 }
+    { "id": "s3", "type": "stone", "x": 860,  "y": 980, "amount": 100 },
+    { "id": "g1", "type": "gold",  "x": 600,  "y": 600, "amount": 100 },
+    { "id": "g2", "type": "gold",  "x": 1400, "y": 320, "amount": 100 },
+    { "id": "g3", "type": "gold",  "x": 380,  "y": 1050, "amount": 80 }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "note": "Death drop tables + ground pickup items. Data-driven.",
   "pickupRadius": 32,
   "despawnMs": 120000,
@@ -9,46 +9,185 @@
   },
   "tables": {
     "militia": [
-      { "kind": "food", "min": 3, "max": 10, "chance": 0.85 },
-      { "kind": "wood", "min": 1, "max": 5, "chance": 0.4 },
-      { "kind": "item", "itemId": "wooden_club", "chance": 0.12 }
+      {
+        "kind": "meat",
+        "min": 3,
+        "max": 10,
+        "chance": 0.85
+      },
+      {
+        "kind": "wood",
+        "min": 1,
+        "max": 5,
+        "chance": 0.4
+      },
+      {
+        "kind": "item",
+        "itemId": "wooden_club",
+        "chance": 0.12
+      },
+      {
+        "kind": "gold",
+        "min": 1,
+        "max": 3,
+        "chance": 0.25
+      }
     ],
     "villager": [
-      { "kind": "wood", "min": 4, "max": 12, "chance": 0.7 },
-      { "kind": "food", "min": 4, "max": 12, "chance": 0.7 },
-      { "kind": "stone", "min": 1, "max": 4, "chance": 0.35 }
+      {
+        "kind": "wood",
+        "min": 4,
+        "max": 12,
+        "chance": 0.7
+      },
+      {
+        "kind": "meat",
+        "min": 4,
+        "max": 12,
+        "chance": 0.7
+      },
+      {
+        "kind": "stone",
+        "min": 1,
+        "max": 4,
+        "chance": 0.35
+      }
     ],
     "spearman": [
-      { "kind": "food", "min": 4, "max": 12, "chance": 0.8 },
-      { "kind": "item", "itemId": "spear_tip", "chance": 0.15 }
+      {
+        "kind": "meat",
+        "min": 4,
+        "max": 12,
+        "chance": 0.8
+      },
+      {
+        "kind": "item",
+        "itemId": "spear_tip",
+        "chance": 0.15
+      }
     ],
     "archer": [
-      { "kind": "food", "min": 2, "max": 8, "chance": 0.75 },
-      { "kind": "wood", "min": 2, "max": 6, "chance": 0.5 },
-      { "kind": "item", "itemId": "arrow_bundle", "chance": 0.18 }
+      {
+        "kind": "meat",
+        "min": 2,
+        "max": 8,
+        "chance": 0.75
+      },
+      {
+        "kind": "wood",
+        "min": 2,
+        "max": 6,
+        "chance": 0.5
+      },
+      {
+        "kind": "item",
+        "itemId": "arrow_bundle",
+        "chance": 0.18
+      }
     ],
     "cavalry": [
-      { "kind": "food", "min": 6, "max": 16, "chance": 0.85 },
-      { "kind": "item", "itemId": "leather_strap", "chance": 0.2 }
+      {
+        "kind": "meat",
+        "min": 6,
+        "max": 16,
+        "chance": 0.85
+      },
+      {
+        "kind": "item",
+        "itemId": "leather_strap",
+        "chance": 0.2
+      },
+      {
+        "kind": "gold",
+        "min": 1,
+        "max": 3,
+        "chance": 0.25
+      }
     ],
     "monk": [
-      { "kind": "food", "min": 2, "max": 6, "chance": 0.6 },
-      { "kind": "item", "itemId": "holy_charm", "chance": 0.22 }
+      {
+        "kind": "meat",
+        "min": 2,
+        "max": 6,
+        "chance": 0.6
+      },
+      {
+        "kind": "item",
+        "itemId": "holy_charm",
+        "chance": 0.22
+      }
     ],
     "siege": [
-      { "kind": "stone", "min": 8, "max": 20, "chance": 0.9 },
-      { "kind": "wood", "min": 6, "max": 14, "chance": 0.7 }
+      {
+        "kind": "stone",
+        "min": 8,
+        "max": 20,
+        "chance": 0.9
+      },
+      {
+        "kind": "wood",
+        "min": 6,
+        "max": 14,
+        "chance": 0.7
+      },
+      {
+        "kind": "gold",
+        "min": 1,
+        "max": 3,
+        "chance": 0.25
+      }
     ],
     "default": [
-      { "kind": "food", "min": 2, "max": 6, "chance": 0.7 },
-      { "kind": "wood", "min": 1, "max": 4, "chance": 0.4 }
+      {
+        "kind": "meat",
+        "min": 2,
+        "max": 6,
+        "chance": 0.7
+      },
+      {
+        "kind": "wood",
+        "min": 1,
+        "max": 4,
+        "chance": 0.4
+      },
+      {
+        "kind": "gold",
+        "min": 1,
+        "max": 3,
+        "chance": 0.25
+      }
     ]
   },
   "items": {
-    "wooden_club": { "nameZh": "木棒", "atkBonus": 4, "color": "#A0522D", "symbol": "棒" },
-    "spear_tip": { "nameZh": "矛尖", "atkBonus": 5, "color": "#708090", "symbol": "矛" },
-    "arrow_bundle": { "nameZh": "箭束", "atkBonus": 3, "color": "#5F9EA0", "symbol": "箭" },
-    "leather_strap": { "nameZh": "皮條", "atkBonus": 2, "color": "#CD853F", "symbol": "皮" },
-    "holy_charm": { "nameZh": "聖符", "atkBonus": 1, "color": "#F5F5DC", "symbol": "符" }
+    "wooden_club": {
+      "nameZh": "木棒",
+      "atkBonus": 4,
+      "color": "#A0522D",
+      "symbol": "棒"
+    },
+    "spear_tip": {
+      "nameZh": "矛尖",
+      "atkBonus": 5,
+      "color": "#708090",
+      "symbol": "矛"
+    },
+    "arrow_bundle": {
+      "nameZh": "箭束",
+      "atkBonus": 3,
+      "color": "#5F9EA0",
+      "symbol": "箭"
+    },
+    "leather_strap": {
+      "nameZh": "皮條",
+      "atkBonus": 2,
+      "color": "#CD853F",
+      "symbol": "皮"
+    },
+    "holy_charm": {
+      "nameZh": "聖符",
+      "atkBonus": 1,
+      "color": "#F5F5DC",
+      "symbol": "符"
+    }
   }
 }

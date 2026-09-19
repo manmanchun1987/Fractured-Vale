@@ -19,7 +19,7 @@ app.get("/api/health", (_req, res) => {
     ok: true,
     name: "Fractured Vale",
     phase: 4,
-    features: ["gather", "barracks", "combat", "loot", "villager-ai", "building-persist"],
+    features: ["gather", "barracks", "combat", "loot", "villager-ai", "building-persist", "meat-gold", "mobile-castle", "pop-cap-300"],
   });
 });
 
@@ -40,7 +40,7 @@ const gameServer = new Server({
 gameServer.define("world", WorldRoom);
 
 gameServer.listen(PORT).then(() => {
-  console.log(`《星隕之境 Fractured Vale》Phase 4`);
+  console.log(`《星隕之境 Fractured Vale》Phase 4+`);
   console.log(`http://localhost:${PORT}`);
   console.log(`Serving client from ${clientDir}`);
 }).catch((err) => {

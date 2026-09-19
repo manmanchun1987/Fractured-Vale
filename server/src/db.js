@@ -20,7 +20,9 @@ db.exec(`
     y REAL NOT NULL DEFAULT 400,
     wood REAL NOT NULL DEFAULT 0,
     food REAL NOT NULL DEFAULT 0,
+    meat REAL NOT NULL DEFAULT 0,
     stone REAL NOT NULL DEFAULT 0,
+    gold REAL NOT NULL DEFAULT 0,
     atk_bonus REAL NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
@@ -36,17 +38,21 @@ db.exec(`
   );
 `);
 
-// migrations for older DBs
 const cols = db.prepare("PRAGMA table_info(players)").all().map((c) => c.name);
-for (const col of ["wood", "food", "stone", "atk_bonus"]) {
+for (const col of ["wood", "food", "meat", "stone", "gold", "atk_bonus"]) {
   if (!cols.includes(col)) {
     db.exec(`ALTER TABLE players ADD COLUMN ${col} REAL NOT NULL DEFAULT 0`);
   }
 }
 
+// one-time-ish: copy legacy food into meat when meat is empty
+try {
+  db.exec(`UPDATE players SET meat = food WHERE (meat IS NULL OR meat = 0) AND food > 0`);
+} catch (_) {}
+
 const upsertStmt = db.prepare(`
-  INSERT INTO players (id, name, nation_id, spec_id, x, y, wood, food, stone, atk_bonus, created_at, updated_at)
-  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @wood, @food, @stone, @atk_bonus, @created_at, @updated_at)
+  INSERT INTO players (id, name, nation_id, spec_id, x, y, wood, food, meat, stone, gold, atk_bonus, created_at, updated_at)
+  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @wood, @food, @meat, @stone, @gold, @atk_bonus, @created_at, @updated_at)
   ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     nation_id = excluded.nation_id,
@@ -55,7 +61,9 @@ const upsertStmt = db.prepare(`
     y = excluded.y,
     wood = excluded.wood,
     food = excluded.food,
+    meat = excluded.meat,
     stone = excluded.stone,
+    gold = excluded.gold,
     atk_bonus = excluded.atk_bonus,
     updated_at = excluded.updated_at
 `);
@@ -80,6 +88,7 @@ const listBuildingsByOwnerStmt = db.prepare(`SELECT * FROM buildings WHERE owner
 
 function savePlayer(p) {
   const now = Date.now();
+  const meat = p.meat || 0;
   upsertStmt.run({
     id: p.id,
     name: p.name,
@@ -88,8 +97,10 @@ function savePlayer(p) {
     x: p.x,
     y: p.y,
     wood: p.wood || 0,
-    food: p.food || 0,
+    food: meat, // keep legacy column in sync
+    meat,
     stone: p.stone || 0,
+    gold: p.gold || 0,
     atk_bonus: p.atkBonus || 0,
     created_at: p.createdAt || now,
     updated_at: now,

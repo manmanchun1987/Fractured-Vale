@@ -42,8 +42,10 @@ class GameScene extends Phaser.Scene {
     this.buildingSprites = new Map();
     this.followerSprites = new Map();
     this.lootSprites = new Map();
+    this.castleSprites = new Map();
     this.damageTexts = [];
     this.attackHeld = false;
+    this.popCap = (this.buildingData && this.buildingData.populationCap) || 300;
     this.mySessionId = this.room.sessionId;
     this.lootData = this.registry.get("loot") || { items: {}, tables: {} };
 
@@ -447,6 +449,9 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-B", () => this.requestBuild());
     this.input.keyboard.on("keydown-T", () => this.requestTrain("militia"));
     this.input.keyboard.on("keydown-V", () => this.requestTrain("villager"));
+    this.input.keyboard.on("keydown-G", () => this.castleAction("garrison"));
+    this.input.keyboard.on("keydown-E", () => this.castleAction("deploy"));
+    this.input.keyboard.on("keydown-C", () => this.castleAction("follow"));
     this.input.keyboard.on("keydown-A", () => this.setAttack(true));
     this.input.keyboard.on("keyup-A", () => this.setAttack(false));
     this.input.keyboard.on("keydown-SPACE", () => this.setAttack(true));
@@ -476,6 +481,16 @@ class GameScene extends Phaser.Scene {
         villBtn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
       });
     }
+    const bindTap = (el, fn) => {
+      if (!el) return;
+      el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fn(); };
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    };
+    bindTap(document.getElementById("btn-garrison"), () => this.castleAction("garrison"));
+    bindTap(document.getElementById("btn-deploy"), () => this.castleAction("deploy"));
+    bindTap(document.getElementById("btn-castle-follow"), () => this.castleAction("follow"));
     if (atkBtn) {
       const down = (e) => {
         e.preventDefault();
@@ -518,6 +533,11 @@ class GameScene extends Phaser.Scene {
     this.room.send("train", { unit: unit || "militia" });
   }
 
+  castleAction(action) {
+    if (!this.room) return;
+    this.room.send("castle", { action });
+  }
+
   syncWorldEntities() {
     const st = this.room.state;
     if (st.resources) {
@@ -539,6 +559,11 @@ class GameScene extends Phaser.Scene {
       st.loot.forEach((l, id) => this.ensureLoot(id, l));
       st.loot.onAdd((l, id) => this.ensureLoot(id, l));
       st.loot.onRemove((_l, id) => this.removeLoot(id));
+    }
+    if (st.castles) {
+      st.castles.forEach((c, id) => this.ensureCastle(id, c));
+      st.castles.onAdd((c, id) => this.ensureCastle(id, c));
+      st.castles.onRemove((_c, id) => this.removeCastle(id));
     }
   }
 
@@ -635,6 +660,32 @@ class GameScene extends Phaser.Scene {
     if (s) { s.destroy(); this.lootSprites.delete(id); }
   }
 
+  ensureCastle(id, c) {
+    if (this.castleSprites.has(id)) return;
+    const cfg = (this.buildingData && this.buildingData.castle) || {};
+    const size = cfg.size || 52;
+    const color = Phaser.Display.Color.HexStringToColor(c.color || cfg.color || "#4A3728").color;
+    const container = this.add.container(c.x, c.y);
+    const body = this.add.rectangle(0, 0, size, size * 0.85, color, 0.95);
+    body.setStrokeStyle(3, 0xffd700, 0.65);
+    const keep = this.add.rectangle(0, -size * 0.15, size * 0.35, size * 0.45, 0x2a1a10, 0.95);
+    const label = this.add.text(0, -size / 2 - 12, cfg.nameZh || "移動城堡", {
+      fontSize: "11px", color: "#ffe08a", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5);
+    const gTxt = this.add.text(0, size / 2 + 6, "", {
+      fontSize: "10px", color: "#fff", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5);
+    container.add([body, keep, label, gTxt]);
+    container.setData("gTxt", gTxt);
+    container.setDepth(2.5);
+    this.castleSprites.set(id, container);
+  }
+
+  removeCastle(id) {
+    const s = this.castleSprites.get(id);
+    if (s) { s.destroy(); this.castleSprites.delete(id); }
+  }
+
   setHpBar(spr, hp, maxHp) {
     const fill = spr.getData("hpFill");
     const w = spr.getData("hpW") || 12;
@@ -650,13 +701,19 @@ class GameScene extends Phaser.Scene {
     const me = this.room.state.players.get(this.mySessionId);
     const el = document.getElementById("hud-res");
     const hpEl = document.getElementById("hud-hp");
+    const popEl = document.getElementById("hud-pop");
     if (!me) return;
     if (el) {
-      const bonus = me.atkBonus ? ` · 攻+${Math.floor(me.atkBonus)}` : "";
-      el.textContent = `木 ${Math.floor(me.wood || 0)} · 食 ${Math.floor(me.food || 0)} · 石 ${Math.floor(me.stone || 0)}${bonus}`;
+      const bonus = me.atkBonus ? ` 攻+${Math.floor(me.atkBonus)}` : "";
+      el.textContent =
+        `木${Math.floor(me.wood || 0)} 肉${Math.floor(me.meat || 0)} 石${Math.floor(me.stone || 0)} 金${Math.floor(me.gold || 0)}${bonus}`;
     }
     if (hpEl) {
       hpEl.textContent = `HP ${Math.ceil(me.hp || 0)}/${Math.ceil(me.maxHp || 0)}`;
+    }
+    if (popEl) {
+      const cap = this.popCap || 300;
+      popEl.textContent = `人口 ${Math.floor(me.pop || 0)}/${cap}`;
     }
   }
 
@@ -719,6 +776,23 @@ class GameScene extends Phaser.Scene {
         const q = spr.getData("queue");
         if (q) {
           q.setText(b.queueMs > 0 ? `訓練 ${(b.queueMs / 1000).toFixed(1)}s` : "");
+        }
+      });
+    }
+
+    // castles
+    if (this.room.state.castles) {
+      this.room.state.castles.forEach((c, id) => {
+        let spr = this.castleSprites.get(id);
+        if (!spr) { this.ensureCastle(id, c); spr = this.castleSprites.get(id); }
+        if (!spr) return;
+        spr.x = Phaser.Math.Linear(spr.x, c.x, 0.25);
+        spr.y = Phaser.Math.Linear(spr.y, c.y, 0.25);
+        const gTxt = spr.getData("gTxt");
+        if (gTxt) {
+          const move = c.moving ? "移動中 · " : "";
+          const fol = c.followOwner ? "跟隨 · " : "";
+          gTxt.setText(`${fol}${move}駐軍 ${Math.floor(c.garrison || 0)}`);
         }
       });
     }
