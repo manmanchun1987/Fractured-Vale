@@ -136,6 +136,15 @@ class WorldRoom extends Room {
     });
 
     this.onMessage("castle", (client, message) => this.handleCastle(client, message));
+    // playtest helper: drop a small loot pile at feet (disabled when FRACTURED_TEST_KIT=0)
+    this.onMessage("dev_loot", (client) => {
+      if (process.env.FRACTURED_TEST_KIT === "0") return;
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      this.spawnLoot(player.x + 8, player.y, "meat", 17, "");
+      this.spawnLoot(player.x - 8, player.y, "gold", 5, "");
+      this.notifyClient(client.sessionId, "測試掉落已放喺腳邊");
+    });
 
     this.setSimulationInterval((deltaTime) => this.update(deltaTime), TICK_MS);
     console.log("[WorldRoom] created (Phase 4+: combat/loot/castle/pop300)");
@@ -938,6 +947,15 @@ class WorldRoom extends Room {
     return true;
   }
 
+  notifyClient(sessionId, text) {
+    for (const c of this.clients) {
+      if (c.sessionId === sessionId) {
+        c.send("system", { text, t: Date.now() });
+        return;
+      }
+    }
+  }
+
   tickLootPickup(sessionId, player) {
     const toRemove = [];
     this.state.loot.forEach((loot, id) => {
@@ -946,19 +964,20 @@ class WorldRoom extends Room {
         const it = lootItems[loot.itemId];
         if (it) {
           player.atkBonus = (player.atkBonus || 0) + (it.atkBonus || 0);
-          let notify = null;
-          for (const c of this.clients) {
-            if (c.sessionId === sessionId) { notify = c; break; }
-          }
-          if (notify) {
-            notify.send("system", {
-              text: `拾取 ${it.nameZh}（攻擊+${it.atkBonus || 0}）`,
-              t: Date.now(),
-            });
-          }
+          this.notifyClient(
+            sessionId,
+            `拾取 ${it.nameZh}（攻擊+${it.atkBonus || 0}）`
+          );
+        } else {
+          this.notifyClient(sessionId, `拾取 ${loot.label || loot.itemId || "物品"}`);
         }
       } else {
-        addResource(player, loot.kind, loot.amount);
+        const amt = Number(loot.amount) || 0;
+        if (amt > 0) {
+          addResource(player, loot.kind, amt);
+          const label = loot.label || loot.kind;
+          this.notifyClient(sessionId, `拾取 ${label} ×${Math.round(amt)}`);
+        }
       }
       toRemove.push(id);
     });

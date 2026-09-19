@@ -1,7 +1,7 @@
 {
   "version": 2,
   "note": "Death drop tables + ground pickup items. Data-driven.",
-  "pickupRadius": 32,
+  "pickupRadius": 72,
   "despawnMs": 120000,
   "playerDeath": {
     "resourceLoseFraction": 0.25,

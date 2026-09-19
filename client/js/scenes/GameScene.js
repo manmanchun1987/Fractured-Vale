@@ -290,13 +290,26 @@ class GameScene extends Phaser.Scene {
     const spr = this.sprites.get(this.mySessionId);
     this.freeCam = false;
     this._pan = null;
+    this._ignorePanUntil = performance.now() + 400;
     const cam = this.cameras.main;
     if (spr) {
+      cam.stopFollow();
       cam.centerOn(spr.x, spr.y);
-      cam.startFollow(spr, true, 0.12, 0.12);
+      // slightly snappier follow so 「返自己」明顯跟住角色
+      cam.startFollow(spr, true, 0.22, 0.22);
     }
     const btn = document.getElementById("cam-recenter");
     if (btn) btn.classList.remove("active");
+  }
+
+  ensureCameraFollow() {
+    if (this.freeCam) return;
+    const spr = this.sprites.get(this.mySessionId);
+    if (!spr) return;
+    const cam = this.cameras.main;
+    if (cam._follow !== spr) {
+      cam.startFollow(spr, true, 0.22, 0.22);
+    }
   }
 
   setupCameraPan() {
@@ -316,6 +329,7 @@ class GameScene extends Phaser.Scene {
 
     const startPan = (clientX, clientY, pointerId) => {
       if (this._pinch) return;
+      if (this._ignorePanUntil && performance.now() < this._ignorePanUntil) return;
       if (this.joystick && this.joystick.active) return;
       if (this.touchInUiBlock({ clientX, clientY })) return;
       this._pan = {
@@ -413,12 +427,13 @@ class GameScene extends Phaser.Scene {
       const onRecenter = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+        this._pan = null;
         this.recenterOnPlayer();
       };
-      btn.onclick = onRecenter;
-      // stop pan from seeing this as map drag
-      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
-        btn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      // capture:true so window pan listener (also capture) does not steal the click
+      ["pointerdown", "touchstart", "mousedown", "click"].forEach((ev) => {
+        btn.addEventListener(ev, onRecenter, { capture: true });
       });
     }
   }
@@ -749,6 +764,7 @@ class GameScene extends Phaser.Scene {
       // smooth follow schema pos
       spr.x = Phaser.Math.Linear(spr.x, p.x, 0.35);
       spr.y = Phaser.Math.Linear(spr.y, p.y, 0.35);
+      if (id === this.mySessionId) this.ensureCameraFollow();
       this.applyFacing(spr, p.dir || "down");
       this.setHpBar(spr, p.hp, p.maxHp);
     });
