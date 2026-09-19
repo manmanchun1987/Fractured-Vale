@@ -21,22 +21,32 @@ db.exec(`
     wood REAL NOT NULL DEFAULT 0,
     food REAL NOT NULL DEFAULT 0,
     stone REAL NOT NULL DEFAULT 0,
+    atk_bonus REAL NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS buildings (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    x REAL NOT NULL,
+    y REAL NOT NULL,
     updated_at INTEGER NOT NULL
   );
 `);
 
-// Phase 3 migration for older DBs
+// migrations for older DBs
 const cols = db.prepare("PRAGMA table_info(players)").all().map((c) => c.name);
-for (const col of ["wood", "food", "stone"]) {
+for (const col of ["wood", "food", "stone", "atk_bonus"]) {
   if (!cols.includes(col)) {
     db.exec(`ALTER TABLE players ADD COLUMN ${col} REAL NOT NULL DEFAULT 0`);
   }
 }
 
 const upsertStmt = db.prepare(`
-  INSERT INTO players (id, name, nation_id, spec_id, x, y, wood, food, stone, created_at, updated_at)
-  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @wood, @food, @stone, @created_at, @updated_at)
+  INSERT INTO players (id, name, nation_id, spec_id, x, y, wood, food, stone, atk_bonus, created_at, updated_at)
+  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @wood, @food, @stone, @atk_bonus, @created_at, @updated_at)
   ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     nation_id = excluded.nation_id,
@@ -46,11 +56,27 @@ const upsertStmt = db.prepare(`
     wood = excluded.wood,
     food = excluded.food,
     stone = excluded.stone,
+    atk_bonus = excluded.atk_bonus,
     updated_at = excluded.updated_at
 `);
 
 const getStmt = db.prepare(`SELECT * FROM players WHERE id = ?`);
 const getByNameStmt = db.prepare(`SELECT * FROM players WHERE name = ? COLLATE NOCASE`);
+
+const upsertBuildingStmt = db.prepare(`
+  INSERT INTO buildings (id, owner_id, type, x, y, updated_at)
+  VALUES (@id, @owner_id, @type, @x, @y, @updated_at)
+  ON CONFLICT(id) DO UPDATE SET
+    owner_id = excluded.owner_id,
+    type = excluded.type,
+    x = excluded.x,
+    y = excluded.y,
+    updated_at = excluded.updated_at
+`);
+
+const deleteBuildingStmt = db.prepare(`DELETE FROM buildings WHERE id = ?`);
+const listBuildingsStmt = db.prepare(`SELECT * FROM buildings`);
+const listBuildingsByOwnerStmt = db.prepare(`SELECT * FROM buildings WHERE owner_id = ?`);
 
 function savePlayer(p) {
   const now = Date.now();
@@ -64,6 +90,7 @@ function savePlayer(p) {
     wood: p.wood || 0,
     food: p.food || 0,
     stone: p.stone || 0,
+    atk_bonus: p.atkBonus || 0,
     created_at: p.createdAt || now,
     updated_at: now,
   });
@@ -77,4 +104,36 @@ function loadPlayerByName(name) {
   return getByNameStmt.get(name) || null;
 }
 
-module.exports = { db, savePlayer, loadPlayer, loadPlayerByName };
+function saveBuilding(b) {
+  upsertBuildingStmt.run({
+    id: b.id,
+    owner_id: b.ownerId,
+    type: b.type || "barracks",
+    x: b.x,
+    y: b.y,
+    updated_at: Date.now(),
+  });
+}
+
+function deleteBuilding(id) {
+  deleteBuildingStmt.run(id);
+}
+
+function loadAllBuildings() {
+  return listBuildingsStmt.all();
+}
+
+function loadBuildingsByOwner(ownerId) {
+  return listBuildingsByOwnerStmt.all(ownerId);
+}
+
+module.exports = {
+  db,
+  savePlayer,
+  loadPlayer,
+  loadPlayerByName,
+  saveBuilding,
+  deleteBuilding,
+  loadAllBuildings,
+  loadBuildingsByOwner,
+};
