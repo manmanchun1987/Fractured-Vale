@@ -287,10 +287,19 @@ class WorldRoom extends Room {
     } else {
       p.x = nation.startX + (Math.random() * 40 - 20);
       p.y = nation.startY + (Math.random() * 40 - 20);
-      p.wood = 10;
-      p.meat = 15;
-      p.stone = 5;
+      p.wood = 0;
+      p.meat = 0;
+      p.stone = 0;
       p.gold = 0;
+    }
+
+    // Playtest kit: enough to build barracks, train, and try castle/combat without grinding
+    const TEST_KIT = { wood: 500, meat: 500, stone: 500, gold: 200 };
+    if (process.env.FRACTURED_TEST_KIT !== "0") {
+      p.wood = Math.max(p.wood, TEST_KIT.wood);
+      p.meat = Math.max(p.meat, TEST_KIT.meat);
+      p.stone = Math.max(p.stone, TEST_KIT.stone);
+      p.gold = Math.max(p.gold, TEST_KIT.gold);
     }
 
     this.state.players.set(client.sessionId, p);
