@@ -4,10 +4,11 @@ window.FVJoystick = (function () {
     const base = document.createElement("div");
     const knob = document.createElement("div");
     Object.assign(base.style, {
-      position: "absolute", left: "24px", bottom: "24px",
+      position: "absolute", left: "12px", bottom: "12px",
       width: "110px", height: "110px", borderRadius: "50%",
       background: "rgba(255,255,255,0.12)", border: "2px solid rgba(255,255,255,0.25)",
       touchAction: "none",
+      pointerEvents: "auto",
     });
     Object.assign(knob.style, {
       position: "absolute", left: "35px", top: "35px",

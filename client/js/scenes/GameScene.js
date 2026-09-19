@@ -107,6 +107,13 @@ class GameScene extends Phaser.Scene {
   setupChat() {
     const form = document.getElementById("chat-form");
     const input = document.getElementById("chat-input");
+    const chatBox = document.getElementById("chat-box");
+    // 防止觸控落到 Phaser／搖桿區
+    if (chatBox) {
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        chatBox.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
     form.onsubmit = (e) => {
       e.preventDefault();
       const text = input.value.trim();
