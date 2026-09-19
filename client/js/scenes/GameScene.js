@@ -134,42 +134,114 @@ class GameScene extends Phaser.Scene {
     log.scrollTop = log.scrollHeight;
   }
 
-  setupZoom() {
+  applyZoom(next) {
     const cam = this.cameras.main;
-    const clampZoom = (z) => Phaser.Math.Clamp(z, 0.3, 2);
-
-    // mouse wheel
-    this.input.on("wheel", (_p, _go, _dx, dy) => {
-      this.zoom = clampZoom(this.zoom * (dy > 0 ? 0.9 : 1.1));
-      cam.setZoom(this.zoom);
-      this.updateZoomHud();
-    });
-
-    // pinch
-    this._pinch = null;
-    const canvas = this.game.canvas;
-    canvas.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 2) {
-        const d = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        this._pinch = { dist: d, zoom: this.zoom };
-      }
-    }, { passive: true });
-    canvas.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 2 && this._pinch) {
-        const d = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        this.zoom = clampZoom(this._pinch.zoom * (d / this._pinch.dist));
-        cam.setZoom(this.zoom);
-        this.updateZoomHud();
-      }
-    }, { passive: true });
-    canvas.addEventListener("touchend", () => { this._pinch = null; }, { passive: true });
+    this.zoom = Phaser.Math.Clamp(next, 0.3, 2);
+    cam.setZoom(this.zoom);
     this.updateZoomHud();
+  }
+
+  setupZoom() {
+    const canvas = this.game.canvas;
+    this._pinch = null;
+    this._zoomHandlers = [];
+
+    const on = (target, type, fn, opts) => {
+      target.addEventListener(type, fn, opts);
+      this._zoomHandlers.push({ target, type, fn, opts });
+    };
+
+    // Primary: native wheel on canvas (Phaser wheel often never fires / is swallowed)
+    on(canvas, "wheel", (e) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      this.applyZoom(this.zoom * factor);
+    }, { passive: false });
+
+    // Backup: Phaser input wheel (if it fires)
+    this._phaserWheel = (_p, _go, _dx, dy) => {
+      if (!dy) return;
+      this.applyZoom(this.zoom * (dy > 0 ? 0.9 : 1.1));
+    };
+    this.input.on("wheel", this._phaserWheel);
+
+    const touchInJoystick = (touch) => {
+      if (this.joystick && this.joystick.active) return true;
+      const zone = document.getElementById("joystick-zone");
+      if (!zone || !touch) return false;
+      const r = zone.getBoundingClientRect();
+      return (
+        touch.clientX >= r.left && touch.clientX <= r.right &&
+        touch.clientY >= r.top && touch.clientY <= r.bottom
+      );
+    };
+
+    const touchInChat = (touch) => {
+      const box = document.getElementById("chat-box");
+      if (!box || !touch) return false;
+      const r = box.getBoundingClientRect();
+      return (
+        touch.clientX >= r.left && touch.clientX <= r.right &&
+        touch.clientY >= r.top && touch.clientY <= r.bottom
+      );
+    };
+
+    const pinchBlocked = (touches) => {
+      for (let i = 0; i < touches.length; i++) {
+        if (touchInJoystick(touches[i]) || touchInChat(touches[i])) return true;
+      }
+      return false;
+    };
+
+    on(canvas, "touchstart", (e) => {
+      if (e.touches.length !== 2) {
+        this._pinch = null;
+        return;
+      }
+      if (pinchBlocked(e.touches)) {
+        this._pinch = null;
+        return;
+      }
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (d < 8) return;
+      this._pinch = { dist: d, zoom: this.zoom };
+    }, { passive: true });
+
+    on(canvas, "touchmove", (e) => {
+      if (e.touches.length !== 2 || !this._pinch) return;
+      if (pinchBlocked(e.touches)) {
+        this._pinch = null;
+        return;
+      }
+      e.preventDefault();
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (d < 8) return;
+      this.applyZoom(this._pinch.zoom * (d / this._pinch.dist));
+    }, { passive: false });
+
+    const endPinch = () => { this._pinch = null; };
+    on(canvas, "touchend", endPinch, { passive: true });
+    on(canvas, "touchcancel", endPinch, { passive: true });
+
+    this.updateZoomHud();
+  }
+
+  teardownZoom() {
+    if (this._phaserWheel) {
+      this.input.off("wheel", this._phaserWheel);
+      this._phaserWheel = null;
+    }
+    (this._zoomHandlers || []).forEach(({ target, type, fn, opts }) => {
+      target.removeEventListener(type, fn, opts);
+    });
+    this._zoomHandlers = [];
+    this._pinch = null;
   }
 
   updateZoomHud() {
@@ -180,6 +252,12 @@ class GameScene extends Phaser.Scene {
   setupKeyboard() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys("W,A,S,D");
+    // Desktop zoom test: + / = zoom in, - zoom out
+    this.input.keyboard.on("keydown-PLUS", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-EQUALS", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-MINUS", () => this.applyZoom(this.zoom * 0.9));
+    this.input.keyboard.on("keydown-NUMPAD_ADD", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-NUMPAD_SUBTRACT", () => this.applyZoom(this.zoom * 0.9));
   }
 
   update(_t, dt) {
@@ -243,6 +321,7 @@ class GameScene extends Phaser.Scene {
   }
 
   shutdown() {
+    this.teardownZoom();
     if (this.joystick) this.joystick.destroy();
     document.getElementById("hud").classList.add("hidden");
   }

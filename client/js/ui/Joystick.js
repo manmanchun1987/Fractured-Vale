@@ -66,6 +66,7 @@ window.FVJoystick = (function () {
 
     return {
       get vector() { return { dx: state.dx, dy: state.dy }; },
+      get active() { return state.active; },
       destroy() { base.remove(); },
     };
   }
