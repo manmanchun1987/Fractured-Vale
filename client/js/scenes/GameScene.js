@@ -54,6 +54,7 @@ class GameScene extends Phaser.Scene {
     this.joystick = FVJoystick.create(document.getElementById("joystick-zone"));
     this.setupChat();
     this.setupZoom();
+    this.setupCameraPan();
     this.setupKeyboard();
     this.setupPhase3Actions();
 
@@ -92,7 +93,7 @@ class GameScene extends Phaser.Scene {
     container.setData("size", size);
     this.sprites.set(id, container);
 
-    if (id === this.mySessionId) {
+    if (id === this.mySessionId && !this.freeCam) {
       this.cameras.main.startFollow(container, true, 0.12, 0.12);
     }
   }
@@ -160,20 +161,7 @@ class GameScene extends Phaser.Scene {
       this._zoomHandlers.push({ target, type, fn, opts });
     };
 
-    const inUiBlock = (touch) => {
-      if (!touch) return false;
-      for (const id of ["joystick-zone", "chat-box", "zoom-controls"]) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (
-          touch.clientX >= r.left && touch.clientX <= r.right &&
-          touch.clientY >= r.top && touch.clientY <= r.bottom
-        ) return true;
-      }
-      if (this.joystick && this.joystick.active) return true;
-      return false;
-    };
+    const inUiBlock = (touch) => this.touchInUiBlock(touch);
 
     const pinchBlocked = (touches) => {
       for (let i = 0; i < touches.length; i++) {
@@ -251,6 +239,179 @@ class GameScene extends Phaser.Scene {
   updateZoomHud() {
     const el = document.getElementById("hud-zoom");
     if (el) el.textContent = this.zoom.toFixed(1) + "x";
+  }
+
+  touchInUiBlock(touch) {
+    if (!touch) return false;
+    const x = touch.clientX;
+    const y = touch.clientY;
+    for (const id of ["joystick-zone", "chat-box", "zoom-controls", "hud-actions", "cam-recenter"]) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    }
+    if (this.joystick && this.joystick.active) return true;
+    return false;
+  }
+
+  beginFreeCam() {
+    if (this.freeCam) return;
+    this.freeCam = true;
+    this.cameras.main.stopFollow();
+    const btn = document.getElementById("cam-recenter");
+    if (btn) btn.classList.add("active");
+  }
+
+  recenterOnPlayer() {
+    const spr = this.sprites.get(this.mySessionId);
+    this.freeCam = false;
+    this._pan = null;
+    const cam = this.cameras.main;
+    if (spr) {
+      cam.centerOn(spr.x, spr.y);
+      cam.startFollow(spr, true, 0.12, 0.12);
+    }
+    const btn = document.getElementById("cam-recenter");
+    if (btn) btn.classList.remove("active");
+  }
+
+  setupCameraPan() {
+    // One-finger / mouse drag on empty map → free pan; stay free until 「返自己」
+    this.freeCam = false;
+    this._pan = null;
+    this._panHandlers = this._panHandlers || [];
+    // reuse zoom handler list so teardownZoom clears both
+    if (!this._zoomHandlers) this._zoomHandlers = [];
+
+    const on = (target, type, fn, opts) => {
+      target.addEventListener(type, fn, opts);
+      this._zoomHandlers.push({ target, type, fn, opts });
+    };
+
+    const PAN_THRESHOLD = 8;
+
+    const startPan = (clientX, clientY, pointerId) => {
+      if (this._pinch) return;
+      if (this.joystick && this.joystick.active) return;
+      if (this.touchInUiBlock({ clientX, clientY })) return;
+      this._pan = {
+        id: pointerId,
+        lastX: clientX,
+        lastY: clientY,
+        moved: false,
+      };
+    };
+
+    const movePan = (clientX, clientY, pointerId, e) => {
+      if (!this._pan || this._pan.id !== pointerId) return;
+      if (this._pinch) {
+        this._pan = null;
+        return;
+      }
+      const dx = clientX - this._pan.lastX;
+      const dy = clientY - this._pan.lastY;
+      if (!this._pan.moved) {
+        if (Math.hypot(dx, dy) < PAN_THRESHOLD) return;
+        this._pan.moved = true;
+        this.beginFreeCam();
+      }
+      if (e && e.cancelable) e.preventDefault();
+      const cam = this.cameras.main;
+      const z = cam.zoom || this.zoom || 1;
+      cam.scrollX -= dx / z;
+      cam.scrollY -= dy / z;
+      this._pan.lastX = clientX;
+      this._pan.lastY = clientY;
+    };
+
+    const endPan = (pointerId) => {
+      if (!this._pan) return;
+      if (pointerId != null && this._pan.id !== pointerId) return;
+      this._pan = null;
+    };
+
+    // Pointer events (mouse + most mobile); capture so we keep tracking outside canvas
+    on(window, "pointerdown", (e) => {
+      if (e.pointerType === "touch") return; // touch handled below (multi-touch aware)
+      if (e.button !== 0) return;
+      startPan(e.clientX, e.clientY, e.pointerId);
+    }, { passive: true, capture: true });
+
+    on(window, "pointermove", (e) => {
+      if (e.pointerType === "touch") return;
+      movePan(e.clientX, e.clientY, e.pointerId, e);
+    }, { passive: false, capture: true });
+
+    on(window, "pointerup", (e) => {
+      if (e.pointerType === "touch") return;
+      endPan(e.pointerId);
+    }, { passive: true, capture: true });
+
+    on(window, "pointercancel", (e) => {
+      if (e.pointerType === "touch") return;
+      endPan(e.pointerId);
+    }, { passive: true, capture: true });
+
+    // Touch: only single-finger pan; two-finger is pinch
+    on(window, "touchstart", (e) => {
+      if (e.touches.length !== 1) {
+        this._pan = null;
+        return;
+      }
+      const t = e.touches[0];
+      startPan(t.clientX, t.clientY, t.identifier);
+    }, { passive: true, capture: true });
+
+    on(window, "touchmove", (e) => {
+      if (!this._pan) return;
+      if (e.touches.length !== 1) {
+        this._pan = null;
+        return;
+      }
+      const t = e.touches[0];
+      movePan(t.clientX, t.clientY, t.identifier, e);
+    }, { passive: false, capture: true });
+
+    on(window, "touchend", (e) => {
+      if (!this._pan) return;
+      // if the pan finger lifted, end
+      let still = false;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === this._pan.id) { still = true; break; }
+      }
+      if (!still) this._pan = null;
+    }, { passive: true, capture: true });
+
+    on(window, "touchcancel", () => { this._pan = null; }, { passive: true, capture: true });
+
+    const btn = document.getElementById("cam-recenter");
+    if (btn) {
+      const onRecenter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.recenterOnPlayer();
+      };
+      btn.onclick = onRecenter;
+      // stop pan from seeing this as map drag
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        btn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
+  }
+
+  teardownZoom() {
+    if (this._phaserWheel) {
+      this.input.off("wheel", this._phaserWheel);
+      this._phaserWheel = null;
+    }
+    const list = this._zoomHandlers || [];
+    for (const { target, type, fn, opts } of list) {
+      try { target.removeEventListener(type, fn, opts); } catch (_) {}
+    }
+    this._zoomHandlers = [];
+    this._pinch = null;
+    this._pan = null;
   }
 
   setupKeyboard() {
@@ -486,6 +647,7 @@ class GameScene extends Phaser.Scene {
 
   shutdown() {
     this.teardownZoom();
+    this.freeCam = false;
     if (this.joystick) this.joystick.destroy();
     document.getElementById("hud").classList.add("hidden");
   }

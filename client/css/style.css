@@ -65,6 +65,16 @@ html, body {
   border: 1px solid #30363d;
 }
 #zoom-controls button:active { background: #238636; }
+#zoom-controls #cam-recenter {
+  width: 48px; height: auto; min-height: 48px;
+  padding: 6px 4px; font-size: 11px; font-weight: 700; line-height: 1.2;
+  letter-spacing: 0;
+}
+#zoom-controls #cam-recenter.active {
+  background: rgba(35, 134, 54, 0.85);
+  border-color: #3fb950;
+  box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.45);
+}
 #hud-top {
   position: absolute; top: 8px; left: 8px; right: 8px;
   display: flex; justify-content: space-between; align-items: center;
