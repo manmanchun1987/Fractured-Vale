@@ -9,7 +9,19 @@ html, body {
 #ui-overlay {
   position: fixed; inset: 0; pointer-events: none; z-index: 10;
 }
-#ui-overlay .panel, #ui-overlay #hud, #ui-overlay button, #ui-overlay input, #ui-overlay select, #ui-overlay form {
+#ui-overlay .panel, #ui-overlay button, #ui-overlay input, #ui-overlay select, #ui-overlay form {
+  pointer-events: auto;
+}
+/* #hud 本身要穿透，否則雙指變焦永遠打唔到 canvas */
+#ui-overlay #hud {
+  pointer-events: none;
+}
+#ui-overlay #hud #chat-box,
+#ui-overlay #hud #joystick-zone,
+#ui-overlay #hud #zoom-controls,
+#ui-overlay #hud button,
+#ui-overlay #hud input,
+#ui-overlay #hud form {
   pointer-events: auto;
 }
 .hidden { display: none !important; }
@@ -40,7 +52,18 @@ html, body {
 }
 #enter-btn:active { background: #2ea043; }
 
-#hud { position: absolute; inset: 0; }
+#hud { position: absolute; inset: 0; pointer-events: none; }
+#zoom-controls {
+  position: absolute; right: 8px; top: 40px;
+  display: flex; flex-direction: column; gap: 8px; z-index: 40;
+  pointer-events: auto;
+}
+#zoom-controls button {
+  width: 48px; height: 48px; border: none; border-radius: 10px;
+  background: rgba(33,38,45,0.9); color: #fff; font-size: 22px; font-weight: 700;
+  border: 1px solid #30363d;
+}
+#zoom-controls button:active { background: #238636; }
 #hud-top {
   position: absolute; top: 8px; left: 8px; right: 8px;
   display: flex; justify-content: space-between; align-items: center;

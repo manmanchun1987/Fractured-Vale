@@ -150,6 +150,7 @@ class GameScene extends Phaser.Scene {
   }
 
   setupZoom() {
+    // iOS: #hud 曾蓋住全屏，touch 打唔到 canvas → 改聽 window，並加 +/- 掣
     const canvas = this.game.canvas;
     this._pinch = null;
     this._zoomHandlers = [];
@@ -159,49 +160,49 @@ class GameScene extends Phaser.Scene {
       this._zoomHandlers.push({ target, type, fn, opts });
     };
 
-    // Primary: native wheel on canvas (Phaser wheel often never fires / is swallowed)
-    on(canvas, "wheel", (e) => {
-      e.preventDefault();
-      const factor = e.deltaY > 0 ? 0.9 : 1.1;
-      this.applyZoom(this.zoom * factor);
-    }, { passive: false });
+    const inUiBlock = (touch) => {
+      if (!touch) return false;
+      for (const id of ["joystick-zone", "chat-box", "zoom-controls"]) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (
+          touch.clientX >= r.left && touch.clientX <= r.right &&
+          touch.clientY >= r.top && touch.clientY <= r.bottom
+        ) return true;
+      }
+      if (this.joystick && this.joystick.active) return true;
+      return false;
+    };
 
-    // Backup: Phaser input wheel (if it fires)
+    const pinchBlocked = (touches) => {
+      for (let i = 0; i < touches.length; i++) {
+        if (inUiBlock(touches[i])) return true;
+      }
+      return false;
+    };
+
+    const dist2 = (touches) => Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
+
+    // Wheel on canvas + window (desktop / trackpad)
+    const onWheel = (e) => {
+      e.preventDefault();
+      this.applyZoom(this.zoom * (e.deltaY > 0 ? 0.9 : 1.1));
+    };
+    on(canvas, "wheel", onWheel, { passive: false });
+    on(window, "wheel", onWheel, { passive: false });
+
     this._phaserWheel = (_p, _go, _dx, dy) => {
       if (!dy) return;
       this.applyZoom(this.zoom * (dy > 0 ? 0.9 : 1.1));
     };
     this.input.on("wheel", this._phaserWheel);
 
-    const touchInJoystick = (touch) => {
-      if (this.joystick && this.joystick.active) return true;
-      const zone = document.getElementById("joystick-zone");
-      if (!zone || !touch) return false;
-      const r = zone.getBoundingClientRect();
-      return (
-        touch.clientX >= r.left && touch.clientX <= r.right &&
-        touch.clientY >= r.top && touch.clientY <= r.bottom
-      );
-    };
-
-    const touchInChat = (touch) => {
-      const box = document.getElementById("chat-box");
-      if (!box || !touch) return false;
-      const r = box.getBoundingClientRect();
-      return (
-        touch.clientX >= r.left && touch.clientX <= r.right &&
-        touch.clientY >= r.top && touch.clientY <= r.bottom
-      );
-    };
-
-    const pinchBlocked = (touches) => {
-      for (let i = 0; i < touches.length; i++) {
-        if (touchInJoystick(touches[i]) || touchInChat(touches[i])) return true;
-      }
-      return false;
-    };
-
-    on(canvas, "touchstart", (e) => {
+    // Pinch on window so iOS Safari always gets it (HUD no longer steals)
+    on(window, "touchstart", (e) => {
       if (e.touches.length !== 2) {
         this._pinch = null;
         return;
@@ -210,46 +211,41 @@ class GameScene extends Phaser.Scene {
         this._pinch = null;
         return;
       }
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      if (d < 8) return;
+      const d = dist2(e.touches);
+      if (d < 10) return;
       this._pinch = { dist: d, zoom: this.zoom };
-    }, { passive: true });
+    }, { passive: true, capture: true });
 
-    on(canvas, "touchmove", (e) => {
+    on(window, "touchmove", (e) => {
       if (e.touches.length !== 2 || !this._pinch) return;
       if (pinchBlocked(e.touches)) {
         this._pinch = null;
         return;
       }
       e.preventDefault();
-      const d = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      if (d < 8) return;
+      const d = dist2(e.touches);
+      if (d < 10) return;
       this.applyZoom(this._pinch.zoom * (d / this._pinch.dist));
-    }, { passive: false });
+    }, { passive: false, capture: true });
 
     const endPinch = () => { this._pinch = null; };
-    on(canvas, "touchend", endPinch, { passive: true });
-    on(canvas, "touchcancel", endPinch, { passive: true });
+    on(window, "touchend", endPinch, { passive: true, capture: true });
+    on(window, "touchcancel", endPinch, { passive: true, capture: true });
+
+    // Big on-screen buttons (most reliable on iPhone)
+    const zin = document.getElementById("zoom-in");
+    const zout = document.getElementById("zoom-out");
+    if (zin) zin.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.applyZoom(this.zoom * 1.15); };
+    if (zout) zout.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.applyZoom(this.zoom * 0.87); };
+
+
+    this.input.keyboard.on("keydown-PLUS", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-EQUALS", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-MINUS", () => this.applyZoom(this.zoom * 0.9));
+    this.input.keyboard.on("keydown-NUMPAD_ADD", () => this.applyZoom(this.zoom * 1.1));
+    this.input.keyboard.on("keydown-NUMPAD_SUBTRACT", () => this.applyZoom(this.zoom * 0.9));
 
     this.updateZoomHud();
-  }
-
-  teardownZoom() {
-    if (this._phaserWheel) {
-      this.input.off("wheel", this._phaserWheel);
-      this._phaserWheel = null;
-    }
-    (this._zoomHandlers || []).forEach(({ target, type, fn, opts }) => {
-      target.removeEventListener(type, fn, opts);
-    });
-    this._zoomHandlers = [];
-    this._pinch = null;
   }
 
   updateZoomHud() {
