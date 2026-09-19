@@ -15,7 +15,7 @@
   <div id="ui-overlay">
     <div id="create-panel" class="panel hidden">
       <h1>星隕之境</h1>
-      <p class="sub">Fractured Vale · Phase 3</p>
+      <p class="sub">Fractured Vale · Phase 4</p>
       <label>角色名稱
         <input id="name-input" type="text" maxlength="16" placeholder="旅人" autocomplete="off" />
       </label>
@@ -34,6 +34,7 @@
     <div id="hud" class="hidden">
       <div id="hud-top">
         <span id="hud-name"></span>
+        <span id="hud-hp">HP —</span>
         <span id="hud-res">木 0 · 食 0 · 石 0</span>
         <span id="hud-zoom">1.0x</span>
       </div>
@@ -43,8 +44,10 @@
         <button type="button" id="cam-recenter" title="返回角色並跟隨">返自己</button>
       </div>
       <div id="hud-actions">
+        <button type="button" id="btn-attack" title="攻擊附近敵人 (A／空白鍵)">攻擊 A</button>
         <button type="button" id="btn-build" title="建造兵營 (B)">兵營 B</button>
-        <button type="button" id="btn-train" title="訓練民兵 (T)">訓練 T</button>
+        <button type="button" id="btn-train" title="訓練民兵 (T)">民兵 T</button>
+        <button type="button" id="btn-train-villager" title="訓練村民 (V)">村民 V</button>
       </div>
       <div id="chat-box">
         <div id="chat-log"></div>
@@ -54,7 +57,7 @@
         </form>
       </div>
       <div id="joystick-zone"></div>
-      <p id="hint-bar">搖桿移動 · 拖地圖平移 · 「返自己」跟隨 · 雙指／滾輪變焦 · 走近採集 · B 兵營 · T 訓練</p>
+      <p id="hint-bar">搖桿移動 · 拖地圖 · 返自己 · 變焦 · 採集 · 攻擊 · B兵營 · T民兵 · V村民 · 踩掉落物</p>
     </div>
 
     <div id="boot-msg">載入中…</div>

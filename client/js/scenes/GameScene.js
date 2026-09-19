@@ -41,7 +41,11 @@ class GameScene extends Phaser.Scene {
     this.resourceSprites = new Map();
     this.buildingSprites = new Map();
     this.followerSprites = new Map();
+    this.lootSprites = new Map();
+    this.damageTexts = [];
+    this.attackHeld = false;
     this.mySessionId = this.room.sessionId;
+    this.lootData = this.registry.get("loot") || { items: {}, tables: {} };
 
     this.cameras.main.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setZoom(1);
@@ -67,10 +71,23 @@ class GameScene extends Phaser.Scene {
 
     this.room.onMessage("chat", (msg) => this.appendChat("msg", `${msg.from}: ${msg.text}`));
     this.room.onMessage("system", (msg) => this.appendChat("sys", msg.text));
+    this.room.onMessage("fx", (msg) => this.onFx(msg));
 
     this.lastSent = { dx: 0, dy: 0 };
     this.moveAcc = 0;
     this.resHudAcc = 0;
+  }
+
+  onFx(msg) {
+    if (!msg || msg.type !== "dmg") return;
+    const t = this.add.text(msg.x, msg.y, "-" + String(msg.value), {
+      fontSize: "14px",
+      color: "#ff6b6b",
+      stroke: "#000",
+      strokeThickness: 4,
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(50);
+    this.damageTexts.push({ text: t, life: 700, vy: -40 });
   }
 
   ensureSprite(id, p) {
@@ -83,13 +100,17 @@ class GameScene extends Phaser.Scene {
     const body = this.add.rectangle(0, 0, size, size * 1.2, color);
     body.setStrokeStyle(2, 0x000000, 0.5);
     const face = this.add.rectangle(0, -size * 0.35, size * 0.35, size * 0.25, 0xffffff);
-    const label = this.add.text(0, -size - 10, p.name, {
+    const label = this.add.text(0, -size - 14, p.name, {
       fontSize: "11px", color: "#fff", stroke: "#000", strokeThickness: 3,
     }).setOrigin(0.5);
-    container.add([body, face, label]);
+    const hpBg = this.add.rectangle(0, size * 0.75 + 4, size + 4, 5, 0x222222, 0.85);
+    const hpFill = this.add.rectangle(-(size + 4) / 2 + 0.5, size * 0.75 + 4, size + 3, 3, 0x3fb950, 1).setOrigin(0, 0.5);
+    container.add([body, face, label, hpBg, hpFill]);
     container.setData("face", face);
     container.setData("body", body);
     container.setData("label", label);
+    container.setData("hpFill", hpFill);
+    container.setData("hpW", size + 3);
     container.setData("size", size);
     this.sprites.set(id, container);
 
@@ -424,14 +445,67 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-NUMPAD_ADD", () => this.applyZoom(this.zoom * 1.1));
     this.input.keyboard.on("keydown-NUMPAD_SUBTRACT", () => this.applyZoom(this.zoom * 0.9));
     this.input.keyboard.on("keydown-B", () => this.requestBuild());
-    this.input.keyboard.on("keydown-T", () => this.requestTrain());
+    this.input.keyboard.on("keydown-T", () => this.requestTrain("militia"));
+    this.input.keyboard.on("keydown-V", () => this.requestTrain("villager"));
+    this.input.keyboard.on("keydown-A", () => this.setAttack(true));
+    this.input.keyboard.on("keyup-A", () => this.setAttack(false));
+    this.input.keyboard.on("keydown-SPACE", () => this.setAttack(true));
+    this.input.keyboard.on("keyup-SPACE", () => this.setAttack(false));
   }
 
   setupPhase3Actions() {
     const buildBtn = document.getElementById("btn-build");
     const trainBtn = document.getElementById("btn-train");
-    if (buildBtn) buildBtn.onclick = () => this.requestBuild();
-    if (trainBtn) trainBtn.onclick = () => this.requestTrain();
+    const villBtn = document.getElementById("btn-train-villager");
+    const atkBtn = document.getElementById("btn-attack");
+    if (buildBtn) {
+      buildBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.requestBuild(); };
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        buildBtn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
+    if (trainBtn) {
+      trainBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.requestTrain("militia"); };
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        trainBtn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
+    if (villBtn) {
+      villBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); this.requestTrain("villager"); };
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        villBtn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
+    if (atkBtn) {
+      const down = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.setAttack(true);
+        atkBtn.classList.add("held");
+      };
+      const up = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        this.setAttack(false);
+        atkBtn.classList.remove("held");
+      };
+      atkBtn.addEventListener("pointerdown", down);
+      atkBtn.addEventListener("pointerup", up);
+      atkBtn.addEventListener("pointerleave", up);
+      atkBtn.addEventListener("pointercancel", up);
+      atkBtn.addEventListener("touchstart", down, { passive: false });
+      atkBtn.addEventListener("touchend", up);
+      atkBtn.addEventListener("touchcancel", up);
+      // prevent map pan from eating the button
+      ["pointerdown", "touchstart", "mousedown"].forEach((ev) => {
+        atkBtn.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      });
+    }
+  }
+
+  setAttack(on) {
+    this.attackHeld = !!on;
+    if (!this.room) return;
+    this.room.send("attack", { on: !!on });
   }
 
   requestBuild() {
@@ -439,9 +513,9 @@ class GameScene extends Phaser.Scene {
     this.room.send("build", { ox: 48, oy: 0 });
   }
 
-  requestTrain() {
+  requestTrain(unit) {
     if (!this.room) return;
-    this.room.send("train", {});
+    this.room.send("train", { unit: unit || "militia" });
   }
 
   syncWorldEntities() {
@@ -460,6 +534,11 @@ class GameScene extends Phaser.Scene {
       st.followers.forEach((f, id) => this.ensureFollower(id, f));
       st.followers.onAdd((f, id) => this.ensureFollower(id, f));
       st.followers.onRemove((_f, id) => this.removeFollower(id));
+    }
+    if (st.loot) {
+      st.loot.forEach((l, id) => this.ensureLoot(id, l));
+      st.loot.onAdd((l, id) => this.ensureLoot(id, l));
+      st.loot.onRemove((_l, id) => this.removeLoot(id));
     }
   }
 
@@ -521,8 +600,12 @@ class GameScene extends Phaser.Scene {
     const body = this.add.rectangle(0, 0, size, size * 1.1, color);
     body.setStrokeStyle(1, 0x000000, 0.5);
     const face = this.add.rectangle(0, -size * 0.3, size * 0.3, size * 0.2, 0xffffff);
-    container.add([body, face]);
+    const hpBg = this.add.rectangle(0, size * 0.7 + 3, size + 2, 4, 0x222222, 0.85);
+    const hpFill = this.add.rectangle(-(size + 2) / 2 + 0.5, size * 0.7 + 3, size + 1, 2, 0x3fb950, 1).setOrigin(0, 0.5);
+    container.add([body, face, hpBg, hpFill]);
     container.setData("face", face);
+    container.setData("hpFill", hpFill);
+    container.setData("hpW", size + 1);
     container.setData("size", size);
     container.setDepth(3);
     this.followerSprites.set(id, container);
@@ -533,11 +616,48 @@ class GameScene extends Phaser.Scene {
     if (s) { s.destroy(); this.followerSprites.delete(id); }
   }
 
+  ensureLoot(id, l) {
+    if (this.lootSprites.has(id)) return;
+    const color = Phaser.Display.Color.HexStringToColor(l.color || "#DAA520").color;
+    const container = this.add.container(l.x, l.y);
+    const body = this.add.circle(0, 0, 10, color, 0.95);
+    body.setStrokeStyle(2, 0xffffff, 0.55);
+    const label = this.add.text(0, 0, l.label || "?", {
+      fontSize: "10px", color: "#111", stroke: "#fff", strokeThickness: 2,
+    }).setOrigin(0.5);
+    container.add([body, label]);
+    container.setDepth(4);
+    this.lootSprites.set(id, container);
+  }
+
+  removeLoot(id) {
+    const s = this.lootSprites.get(id);
+    if (s) { s.destroy(); this.lootSprites.delete(id); }
+  }
+
+  setHpBar(spr, hp, maxHp) {
+    const fill = spr.getData("hpFill");
+    const w = spr.getData("hpW") || 12;
+    if (!fill) return;
+    const ratio = Math.max(0, Math.min(1, (hp || 0) / Math.max(1, maxHp || 1)));
+    fill.width = Math.max(0.5, w * ratio);
+    if (ratio > 0.55) fill.setFillStyle(0x3fb950, 1);
+    else if (ratio > 0.25) fill.setFillStyle(0xd29922, 1);
+    else fill.setFillStyle(0xf85149, 1);
+  }
+
   updateResHud() {
     const me = this.room.state.players.get(this.mySessionId);
     const el = document.getElementById("hud-res");
-    if (!el || !me) return;
-    el.textContent = `木 ${Math.floor(me.wood || 0)} · 食 ${Math.floor(me.food || 0)} · 石 ${Math.floor(me.stone || 0)}`;
+    const hpEl = document.getElementById("hud-hp");
+    if (!me) return;
+    if (el) {
+      const bonus = me.atkBonus ? ` · 攻+${Math.floor(me.atkBonus)}` : "";
+      el.textContent = `木 ${Math.floor(me.wood || 0)} · 食 ${Math.floor(me.food || 0)} · 石 ${Math.floor(me.stone || 0)}${bonus}`;
+    }
+    if (hpEl) {
+      hpEl.textContent = `HP ${Math.ceil(me.hp || 0)}/${Math.ceil(me.maxHp || 0)}`;
+    }
   }
 
   update(_t, dt) {
@@ -573,6 +693,7 @@ class GameScene extends Phaser.Scene {
       spr.x = Phaser.Math.Linear(spr.x, p.x, 0.35);
       spr.y = Phaser.Math.Linear(spr.y, p.y, 0.35);
       this.applyFacing(spr, p.dir || "down");
+      this.setHpBar(spr, p.hp, p.maxHp);
     });
 
     // resources
@@ -611,7 +732,32 @@ class GameScene extends Phaser.Scene {
         spr.x = Phaser.Math.Linear(spr.x, f.x, 0.35);
         spr.y = Phaser.Math.Linear(spr.y, f.y, 0.35);
         this.applyFacing(spr, f.dir || "down");
+        this.setHpBar(spr, f.hp, f.maxHp);
       });
+    }
+
+    // loot
+    if (this.room.state.loot) {
+      this.room.state.loot.forEach((l, id) => {
+        let spr = this.lootSprites.get(id);
+        if (!spr) { this.ensureLoot(id, l); spr = this.lootSprites.get(id); }
+        if (!spr) return;
+        spr.x = Phaser.Math.Linear(spr.x, l.x, 0.4);
+        spr.y = Phaser.Math.Linear(spr.y, l.y, 0.4);
+      });
+    }
+
+    // floating damage numbers
+    if (this.damageTexts && this.damageTexts.length) {
+      const remain = [];
+      for (const d of this.damageTexts) {
+        d.life -= dt;
+        d.text.y += (d.vy * dt) / 1000;
+        d.text.setAlpha(Math.max(0, d.life / 700));
+        if (d.life > 0) remain.push(d);
+        else d.text.destroy();
+      }
+      this.damageTexts = remain;
     }
 
     this.resHudAcc += dt;
@@ -646,6 +792,7 @@ class GameScene extends Phaser.Scene {
   }
 
   shutdown() {
+    this.setAttack(false);
     this.teardownZoom();
     this.freeCam = false;
     if (this.joystick) this.joystick.destroy();

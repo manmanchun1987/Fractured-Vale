@@ -156,3 +156,50 @@ html, body {
   cursor: pointer;
 }
 #hud-actions button:active { background: #238636; border-color: #238636; }
+
+#hud-hp {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #f85149;
+  background: rgba(0,0,0,0.35);
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+#hud-actions #btn-attack {
+  background: rgba(110, 30, 30, 0.92);
+  border-color: #da3633;
+}
+#hud-actions #btn-attack:active,
+#hud-actions #btn-attack.held {
+  background: #da3633;
+  border-color: #ff7b72;
+}
+#hud-actions #btn-train-villager {
+  background: rgba(40, 60, 30, 0.92);
+  border-color: #3d6b2a;
+}
+#hint-bar {
+  max-width: min(46vw, 220px);
+  line-height: 1.35;
+}
+@media (max-width: 420px) {
+  #hud-top {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 11px;
+  }
+  #hud-actions {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 118px);
+  }
+  #hud-actions button {
+    min-width: 76px;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  #hint-bar {
+    bottom: 152px;
+    font-size: 9px;
+  }
+}

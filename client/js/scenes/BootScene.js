@@ -30,16 +30,18 @@ class BootScene extends Phaser.Scene {
   async create() {
     const boot = document.getElementById("boot-msg");
     try {
-      const [nations, units, resources, buildings] = await Promise.all([
+      const [nations, units, resources, buildings, loot] = await Promise.all([
         fetch("data/nations.json").then((r) => r.json()),
         fetch("data/units.json").then((r) => r.json()),
         fetch("data/resources.json").then((r) => r.json()),
         fetch("data/buildings.json").then((r) => r.json()),
+        fetch("data/loot.json").then((r) => r.json()).catch(() => ({ items: {}, tables: {} })),
       ]);
       this.registry.set("nations", nations);
       this.registry.set("units", units);
       this.registry.set("resources", resources);
       this.registry.set("buildings", buildings);
+      this.registry.set("loot", loot);
       if (boot) boot.classList.add("hidden");
       this.scene.start("Create");
     } catch (err) {
