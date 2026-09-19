@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "Seven AOC-flavored unit types. Specialization picks one for Phase 2 hero focus.",
+  "version": 2,
+  "note": "Seven AOC-flavored unit types with combat + gather fields.",
   "units": [
     {
       "id": "villager",
@@ -9,9 +9,14 @@
       "role": "economy",
       "speed": 90,
       "hp": 40,
+      "atk": 3,
+      "atkRange": 28,
+      "atkCooldownMs": 900,
+      "gatherMult": 1.35,
+      "carryCap": 20,
       "color": "#C4A35A",
       "size": 14,
-      "desc": "經濟核心。Phase 3 將負責採集。"
+      "desc": "經濟核心。自動採集並交回主人。"
     },
     {
       "id": "militia",
@@ -20,9 +25,14 @@
       "role": "melee",
       "speed": 100,
       "hp": 55,
+      "atk": 8,
+      "atkRange": 36,
+      "atkCooldownMs": 700,
+      "gatherMult": 0.55,
+      "carryCap": 8,
       "color": "#8B7355",
       "size": 16,
-      "desc": "基礎近戰步兵。"
+      "desc": "基礎近戰步兵。閒置時可輕採。"
     },
     {
       "id": "spearman",
@@ -31,6 +41,11 @@
       "role": "anti_cavalry",
       "speed": 95,
       "hp": 50,
+      "atk": 9,
+      "atkRange": 42,
+      "atkCooldownMs": 750,
+      "gatherMult": 0.4,
+      "carryCap": 6,
       "color": "#6B8E23",
       "size": 16,
       "desc": "克制騎兵的長矛單位。"
@@ -42,6 +57,11 @@
       "role": "ranged",
       "speed": 105,
       "hp": 35,
+      "atk": 7,
+      "atkRange": 110,
+      "atkCooldownMs": 850,
+      "gatherMult": 0.35,
+      "carryCap": 5,
       "color": "#5F9EA0",
       "size": 14,
       "desc": "遠程輸出。"
@@ -53,6 +73,11 @@
       "role": "shock",
       "speed": 140,
       "hp": 70,
+      "atk": 12,
+      "atkRange": 38,
+      "atkCooldownMs": 650,
+      "gatherMult": 0.2,
+      "carryCap": 4,
       "color": "#CD853F",
       "size": 18,
       "desc": "高速衝擊單位。"
@@ -64,9 +89,14 @@
       "role": "support",
       "speed": 85,
       "hp": 30,
+      "atk": 2,
+      "atkRange": 48,
+      "atkCooldownMs": 1200,
+      "gatherMult": 0.5,
+      "carryCap": 10,
       "color": "#F5F5DC",
       "size": 14,
-      "desc": "支援與治療（Phase 3+）。"
+      "desc": "支援單位（治療後續）。"
     },
     {
       "id": "siege",
@@ -75,6 +105,11 @@
       "role": "siege",
       "speed": 60,
       "hp": 80,
+      "atk": 18,
+      "atkRange": 130,
+      "atkCooldownMs": 1600,
+      "gatherMult": 0,
+      "carryCap": 0,
       "color": "#696969",
       "size": 20,
       "desc": "攻城與破甲。移動緩慢。"

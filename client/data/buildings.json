@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "Phase 3 buildings. Barracks queues one unit type.",
+  "version": 2,
+  "note": "Barracks can queue militia or villager.",
   "barracks": {
     "id": "barracks",
     "nameZh": "兵營",
@@ -9,11 +9,26 @@
     "interactRange": 72,
     "size": 36,
     "color": "#8B4513",
+    "maxFollowers": 8,
+    "trains": {
+      "militia": {
+        "unitId": "militia",
+        "cost": { "wood": 0, "stone": 0, "food": 25 },
+        "durationMs": 4000,
+        "labelZh": "民兵"
+      },
+      "villager": {
+        "unitId": "villager",
+        "cost": { "wood": 0, "stone": 0, "food": 20 },
+        "durationMs": 3500,
+        "labelZh": "村民"
+      }
+    },
     "train": {
       "unitId": "militia",
       "cost": { "wood": 0, "stone": 0, "food": 25 },
       "durationMs": 4000,
-      "maxFollowers": 6
+      "maxFollowers": 8
     }
   }
 }
