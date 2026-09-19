@@ -33,10 +33,14 @@ class GameScene extends Phaser.Scene {
       }).setOrigin(0.5);
     });
 
-    // Phase 3 hooks (not implemented)
-    // TODO Phase 3: resource nodes, barracks, follow AI, loot drops
+    this.resourceData = this.registry.get("resources") || { types: {}, nodes: [] };
+    this.buildingData = this.registry.get("buildings") || {};
+    this.resourceTypes = this.resourceData.types || {};
 
     this.sprites = new Map(); // sessionId -> container
+    this.resourceSprites = new Map();
+    this.buildingSprites = new Map();
+    this.followerSprites = new Map();
     this.mySessionId = this.room.sessionId;
 
     this.cameras.main.setBounds(0, 0, worldW, worldH);
@@ -51,17 +55,21 @@ class GameScene extends Phaser.Scene {
     this.setupChat();
     this.setupZoom();
     this.setupKeyboard();
+    this.setupPhase3Actions();
 
     // sync existing players
     this.room.state.players.forEach((p, id) => this.ensureSprite(id, p));
     this.room.state.players.onAdd((p, id) => this.ensureSprite(id, p));
     this.room.state.players.onRemove((_p, id) => this.removeSprite(id));
 
+    this.syncWorldEntities();
+
     this.room.onMessage("chat", (msg) => this.appendChat("msg", `${msg.from}: ${msg.text}`));
     this.room.onMessage("system", (msg) => this.appendChat("sys", msg.text));
 
     this.lastSent = { dx: 0, dy: 0 };
     this.moveAcc = 0;
+    this.resHudAcc = 0;
   }
 
   ensureSprite(id, p) {
@@ -258,6 +266,121 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard.on("keydown-MINUS", () => this.applyZoom(this.zoom * 0.9));
     this.input.keyboard.on("keydown-NUMPAD_ADD", () => this.applyZoom(this.zoom * 1.1));
     this.input.keyboard.on("keydown-NUMPAD_SUBTRACT", () => this.applyZoom(this.zoom * 0.9));
+    this.input.keyboard.on("keydown-B", () => this.requestBuild());
+    this.input.keyboard.on("keydown-T", () => this.requestTrain());
+  }
+
+  setupPhase3Actions() {
+    const buildBtn = document.getElementById("btn-build");
+    const trainBtn = document.getElementById("btn-train");
+    if (buildBtn) buildBtn.onclick = () => this.requestBuild();
+    if (trainBtn) trainBtn.onclick = () => this.requestTrain();
+  }
+
+  requestBuild() {
+    if (!this.room) return;
+    this.room.send("build", { ox: 48, oy: 0 });
+  }
+
+  requestTrain() {
+    if (!this.room) return;
+    this.room.send("train", {});
+  }
+
+  syncWorldEntities() {
+    const st = this.room.state;
+    if (st.resources) {
+      st.resources.forEach((n, id) => this.ensureResource(id, n));
+      st.resources.onAdd((n, id) => this.ensureResource(id, n));
+      st.resources.onRemove((_n, id) => this.removeResource(id));
+    }
+    if (st.buildings) {
+      st.buildings.forEach((b, id) => this.ensureBuilding(id, b));
+      st.buildings.onAdd((b, id) => this.ensureBuilding(id, b));
+      st.buildings.onRemove((_b, id) => this.removeBuilding(id));
+    }
+    if (st.followers) {
+      st.followers.forEach((f, id) => this.ensureFollower(id, f));
+      st.followers.onAdd((f, id) => this.ensureFollower(id, f));
+      st.followers.onRemove((_f, id) => this.removeFollower(id));
+    }
+  }
+
+  ensureResource(id, n) {
+    if (this.resourceSprites.has(id)) return;
+    const meta = this.resourceTypes[n.type] || { color: "#888", symbol: "?" };
+    const color = Phaser.Display.Color.HexStringToColor(meta.color || "#888888").color;
+    const container = this.add.container(n.x, n.y);
+    const body = this.add.circle(0, 0, 16, color, 0.9);
+    body.setStrokeStyle(2, 0x000000, 0.45);
+    const label = this.add.text(0, -22, meta.symbol || n.type, {
+      fontSize: "12px", color: "#fff", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5);
+    const amt = this.add.text(0, 18, String(Math.floor(n.amount)), {
+      fontSize: "10px", color: "#fff", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5);
+    container.add([body, label, amt]);
+    container.setData("amt", amt);
+    container.setDepth(1);
+    this.resourceSprites.set(id, container);
+  }
+
+  removeResource(id) {
+    const s = this.resourceSprites.get(id);
+    if (s) { s.destroy(); this.resourceSprites.delete(id); }
+  }
+
+  ensureBuilding(id, b) {
+    if (this.buildingSprites.has(id)) return;
+    const cfg = this.buildingData.barracks || {};
+    const color = Phaser.Display.Color.HexStringToColor(cfg.color || "#8B4513").color;
+    const size = cfg.size || 36;
+    const container = this.add.container(b.x, b.y);
+    const body = this.add.rectangle(0, 0, size, size, color, 0.95);
+    body.setStrokeStyle(2, 0x000000, 0.55);
+    const label = this.add.text(0, -size / 2 - 10, cfg.nameZh || "兵營", {
+      fontSize: "11px", color: "#fff", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5);
+    const queue = this.add.text(0, size / 2 + 8, "", {
+      fontSize: "10px", color: "#ffe08a", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5);
+    container.add([body, label, queue]);
+    container.setData("queue", queue);
+    container.setDepth(2);
+    this.buildingSprites.set(id, container);
+  }
+
+  removeBuilding(id) {
+    const s = this.buildingSprites.get(id);
+    if (s) { s.destroy(); this.buildingSprites.delete(id); }
+  }
+
+  ensureFollower(id, f) {
+    if (this.followerSprites.has(id)) return;
+    const unit = this.unitById[f.specId];
+    const size = unit ? Math.max(10, unit.size - 2) : 12;
+    const color = Phaser.Display.Color.HexStringToColor(f.color || "#888888").color;
+    const container = this.add.container(f.x, f.y);
+    const body = this.add.rectangle(0, 0, size, size * 1.1, color);
+    body.setStrokeStyle(1, 0x000000, 0.5);
+    const face = this.add.rectangle(0, -size * 0.3, size * 0.3, size * 0.2, 0xffffff);
+    container.add([body, face]);
+    container.setData("face", face);
+    container.setData("size", size);
+    container.setDepth(3);
+    this.followerSprites.set(id, container);
+  }
+
+  removeFollower(id) {
+    const s = this.followerSprites.get(id);
+    if (s) { s.destroy(); this.followerSprites.delete(id); }
+  }
+
+  updateResHud() {
+    const me = this.room.state.players.get(this.mySessionId);
+    const el = document.getElementById("hud-res");
+    if (!el || !me) return;
+    el.textContent = `木 ${Math.floor(me.wood || 0)} · 食 ${Math.floor(me.food || 0)} · 石 ${Math.floor(me.stone || 0)}`;
   }
 
   update(_t, dt) {
@@ -294,6 +417,51 @@ class GameScene extends Phaser.Scene {
       spr.y = Phaser.Math.Linear(spr.y, p.y, 0.35);
       this.applyFacing(spr, p.dir || "down");
     });
+
+    // resources
+    if (this.room.state.resources) {
+      this.room.state.resources.forEach((n, id) => {
+        let spr = this.resourceSprites.get(id);
+        if (!spr) { this.ensureResource(id, n); spr = this.resourceSprites.get(id); }
+        if (!spr) return;
+        spr.setVisible(n.amount > 0);
+        const amt = spr.getData("amt");
+        if (amt) amt.setText(String(Math.floor(n.amount)));
+      });
+    }
+
+    // buildings
+    if (this.room.state.buildings) {
+      this.room.state.buildings.forEach((b, id) => {
+        let spr = this.buildingSprites.get(id);
+        if (!spr) { this.ensureBuilding(id, b); spr = this.buildingSprites.get(id); }
+        if (!spr) return;
+        spr.x = Phaser.Math.Linear(spr.x, b.x, 0.4);
+        spr.y = Phaser.Math.Linear(spr.y, b.y, 0.4);
+        const q = spr.getData("queue");
+        if (q) {
+          q.setText(b.queueMs > 0 ? `訓練 ${(b.queueMs / 1000).toFixed(1)}s` : "");
+        }
+      });
+    }
+
+    // followers
+    if (this.room.state.followers) {
+      this.room.state.followers.forEach((f, id) => {
+        let spr = this.followerSprites.get(id);
+        if (!spr) { this.ensureFollower(id, f); spr = this.followerSprites.get(id); }
+        if (!spr) return;
+        spr.x = Phaser.Math.Linear(spr.x, f.x, 0.35);
+        spr.y = Phaser.Math.Linear(spr.y, f.y, 0.35);
+        this.applyFacing(spr, f.dir || "down");
+      });
+    }
+
+    this.resHudAcc += dt;
+    if (this.resHudAcc >= 200) {
+      this.resHudAcc = 0;
+      this.updateResHud();
+    }
 
     // input
     let dx = 0, dy = 0;

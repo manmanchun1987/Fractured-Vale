@@ -18,20 +18,34 @@ db.exec(`
     spec_id TEXT NOT NULL,
     x REAL NOT NULL DEFAULT 400,
     y REAL NOT NULL DEFAULT 400,
+    wood REAL NOT NULL DEFAULT 0,
+    food REAL NOT NULL DEFAULT 0,
+    stone REAL NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
   );
 `);
 
+// Phase 3 migration for older DBs
+const cols = db.prepare("PRAGMA table_info(players)").all().map((c) => c.name);
+for (const col of ["wood", "food", "stone"]) {
+  if (!cols.includes(col)) {
+    db.exec(`ALTER TABLE players ADD COLUMN ${col} REAL NOT NULL DEFAULT 0`);
+  }
+}
+
 const upsertStmt = db.prepare(`
-  INSERT INTO players (id, name, nation_id, spec_id, x, y, created_at, updated_at)
-  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @created_at, @updated_at)
+  INSERT INTO players (id, name, nation_id, spec_id, x, y, wood, food, stone, created_at, updated_at)
+  VALUES (@id, @name, @nation_id, @spec_id, @x, @y, @wood, @food, @stone, @created_at, @updated_at)
   ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     nation_id = excluded.nation_id,
     spec_id = excluded.spec_id,
     x = excluded.x,
     y = excluded.y,
+    wood = excluded.wood,
+    food = excluded.food,
+    stone = excluded.stone,
     updated_at = excluded.updated_at
 `);
 
@@ -47,6 +61,9 @@ function savePlayer(p) {
     spec_id: p.specId,
     x: p.x,
     y: p.y,
+    wood: p.wood || 0,
+    food: p.food || 0,
+    stone: p.stone || 0,
     created_at: p.createdAt || now,
     updated_at: now,
   });

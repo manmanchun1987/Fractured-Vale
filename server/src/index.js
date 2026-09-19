@@ -15,7 +15,7 @@ app.use(express.json());
 
 // health / smoke
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "Fractured Vale", phase: 2 });
+  res.json({ ok: true, name: "Fractured Vale", phase: 3 });
 });
 
 app.use(express.static(clientDir));
@@ -35,7 +35,7 @@ const gameServer = new Server({
 gameServer.define("world", WorldRoom);
 
 gameServer.listen(PORT).then(() => {
-  console.log(`《星隕之境 Fractured Vale》Phase 2`);
+  console.log(`《星隕之境 Fractured Vale》Phase 3`);
   console.log(`http://localhost:${PORT}`);
   console.log(`Serving client from ${clientDir}`);
 }).catch((err) => {

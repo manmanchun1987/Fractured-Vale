@@ -88,3 +88,37 @@ html, body {
   font-size: 10px; color: rgba(139,148,158,0.85); text-align: left;
   max-width: 42vw; pointer-events: none;
 }
+
+#hud-res {
+  margin-left: auto;
+  margin-right: 10px;
+  font-size: 12px;
+  color: #c9d1d9;
+  background: rgba(0,0,0,0.35);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+#hud-actions {
+  position: absolute;
+  right: 10px;
+  /* sit above chat box */
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 130px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 16;
+  pointer-events: auto;
+}
+#hud-actions button {
+  min-width: 88px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: rgba(22, 27, 34, 0.92);
+  color: #e6edf3;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#hud-actions button:active { background: #238636; border-color: #238636; }

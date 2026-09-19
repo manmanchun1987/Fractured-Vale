@@ -1,7 +1,7 @@
 {
   "name": "fractured-vale",
-  "version": "0.2.0",
-  "description": "星隕之境 Fractured Vale — Phase 2 (Colyseus + Phaser)",
+  "version": "0.3.0",
+  "description": "星隕之境 Fractured Vale — Phase 3 MVP (gather / barracks / follow)",
   "main": "server/src/index.js",
   "scripts": {
     "start": "node server/src/index.js",

@@ -2,9 +2,9 @@
 
 低奇幻中世紀策略 MMO（SLG × 動作混合，AOC 風味），**手機瀏覽器優先**，反課金設計，$0 成本。
 
-目前版本：**Phase 2** — 創角、多人世界、虛擬搖桿、變焦、LOD、聊天、SQLite 存檔。
+目前版本：**Phase 3 MVP** — Phase 2 基礎 + 資源採集、簡易庫存、兵營訓練、士兵跟隨。
 
-> Phase 3（村民採集 / 兵營 / 跟隨 AI / 掉落）**尚未實作**，程式內留有註解鉤子。
+> 掉落物／戰鬥擊敗獎勵仍為後續工作；Loot 尚未實作。
 
 ---
 
@@ -28,10 +28,13 @@ npm start
 |------|------|
 | 創角 | 揀國家（18）+ 專精兵種（7）+ 名稱 |
 | 移動 | 左下虛擬搖桿，或鍵盤 WASD / 方向鍵 |
-| 變焦 | 雙指捏合，或滑鼠滾輪（0.3x–2x） |
+| 變焦 | 雙指捏合，或滑鼠滾輪／+/-（0.3x–2x） |
+| 採集 | 走近木／食／石節點自動採集 |
+| 兵營 | B 或「兵營」按鈕建造（耗木石） |
+| 訓練 | 走近兵營後 T 或「訓練」按鈕（耗食物） |
 | 聊天 | 左下角輸入框 |
 
-資料驅動：改 `client/data/nations.json`、`client/data/units.json` 即可調國家／兵種。
+資料驅動：改 `client/data/nations.json`、`units.json`、`resources.json`、`buildings.json` 即可調數值。
 
 ---
 
@@ -60,6 +63,8 @@ app/
   client/js/scenes/*.js
   client/data/nations.json     # 18 nations
   client/data/units.json       # 7 unit types
+  client/data/resources.json   # Phase 3 nodes
+  client/data/buildings.json   # barracks / train
 ```
 
 ## 授權與方針

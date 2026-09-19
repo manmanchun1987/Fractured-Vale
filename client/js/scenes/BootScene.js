@@ -4,16 +4,14 @@ class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Generate placeholder textures (colored body + facing marker)
     const g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0xffffff, 1);
     g.fillRoundedRect(0, 4, 20, 24, 4);
     g.fillStyle(0x111111, 1);
-    g.fillCircle(10, 8, 3); // face marker toward "up" of texture; we'll rotate via anim frames
+    g.fillCircle(10, 8, 3);
     g.generateTexture("unit_body", 20, 28);
     g.destroy();
 
-    // Ground tile
     const t = this.make.graphics({ x: 0, y: 0, add: false });
     t.fillStyle(0x3d5c3a, 1);
     t.fillRect(0, 0, 64, 64);
@@ -22,7 +20,6 @@ class BootScene extends Phaser.Scene {
     t.generateTexture("grass", 64, 64);
     t.destroy();
 
-    // Dirt path accent
     const d = this.make.graphics({ x: 0, y: 0, add: false });
     d.fillStyle(0x6b5344, 1);
     d.fillRect(0, 0, 64, 64);
@@ -33,12 +30,16 @@ class BootScene extends Phaser.Scene {
   async create() {
     const boot = document.getElementById("boot-msg");
     try {
-      const [nations, units] = await Promise.all([
+      const [nations, units, resources, buildings] = await Promise.all([
         fetch("data/nations.json").then((r) => r.json()),
         fetch("data/units.json").then((r) => r.json()),
+        fetch("data/resources.json").then((r) => r.json()),
+        fetch("data/buildings.json").then((r) => r.json()),
       ]);
       this.registry.set("nations", nations);
       this.registry.set("units", units);
+      this.registry.set("resources", resources);
+      this.registry.set("buildings", buildings);
       if (boot) boot.classList.add("hidden");
       this.scene.start("Create");
     } catch (err) {

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "note": "Phase 3 buildings. Barracks queues one unit type.",
+  "barracks": {
+    "id": "barracks",
+    "nameZh": "兵營",
+    "placeCost": { "wood": 40, "stone": 20, "food": 0 },
+    "placeRange": 64,
+    "interactRange": 72,
+    "size": 36,
+    "color": "#8B4513",
+    "train": {
+      "unitId": "militia",
+      "cost": { "wood": 0, "stone": 0, "food": 25 },
+      "durationMs": 4000,
+      "maxFollowers": 6
+    }
+  }
+}
