@@ -2,9 +2,7 @@
 
 低奇幻中世紀策略 MMO（SLG × 動作混合，AOC 風味），**手機瀏覽器優先**，反課金設計，$0 成本。
 
-目前版本：**Phase 3 MVP** — Phase 2 基礎 + 資源採集、簡易庫存、兵營訓練、士兵跟隨。
-
-> 掉落物／戰鬥擊敗獎勵仍為後續工作；Loot 尚未實作。
+目前版本：**Phase 4** — 採集／庫存／兵營／跟隨 + **戰鬥、掉落物、村民採集 AI、兵營持久化**。
 
 ---
 
@@ -32,11 +30,14 @@ npm start
 | 返自己 | 右上「返自己」掣：鏡頭回角色並恢復跟隨 |
 | 變焦 | 雙指捏合，或滑鼠滾輪／+/-（0.3x–2x） |
 | 採集 | 走近木／食／石節點自動採集 |
-| 兵營 | B 或「兵營」按鈕建造（耗木石） |
-| 訓練 | 走近兵營後 T 或「訓練」按鈕（耗食物） |
-| 聊天 | 左下角輸入框 |
+| 兵營 | B 或「兵營」按鈕建造（耗木石；**存入 SQLite**） |
+| 訓練 | 走近兵營：T 民兵／V 村民（耗食物） |
+| 攻擊 | 按住「攻擊」或 A／空白鍵：打附近敵方單位／玩家（輕 PvP） |
+| 掉落 | 單位死亡掉資源／裝備；走近自動拾取 |
+| 村民 AI | 村民自動採集並交回主人；民兵閒置近節點也會輕採 |
+| 聊天 | 右下角輸入框 |
 
-資料驅動：改 `client/data/nations.json`、`units.json`、`resources.json`、`buildings.json` 即可調數值。
+資料驅動：改 `client/data/*.json`（含 `loot.json`）即可調數值。
 
 ---
 
@@ -51,6 +52,8 @@ Stack: Node.js + Colyseus + SQLite (`better-sqlite3`) server; Phaser 3.80 + coly
 
 Optional deploy stubs: `Dockerfile`, `render.yaml` (do not change local `npm start`).
 
+Health: `GET /api/health` → `{ phase: 4, features: [...] }`.
+
 ---
 
 ## 目錄結構
@@ -60,13 +63,14 @@ app/
   package.json
   server/src/index.js          # Express + Colyseus
   server/src/rooms/WorldRoom.js
-  server/src/db.js             # SQLite player save
+  server/src/db.js             # SQLite players + buildings
   client/index.html
   client/js/scenes/*.js
   client/data/nations.json     # 18 nations
-  client/data/units.json       # 7 unit types
-  client/data/resources.json   # Phase 3 nodes
+  client/data/units.json       # 7 unit types (+ combat/gather)
+  client/data/resources.json   # resource nodes
   client/data/buildings.json   # barracks / train
+  client/data/loot.json        # death drops + items
 ```
 
 ## 授權與方針
